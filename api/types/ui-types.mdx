@@ -1,0 +1,454 @@
+---
+title: "UI Types"
+description: "Type definitions for UI-related market data and identifiers"
+---
+
+# UI Types
+
+Drift Common provides specialized type definitions for working with markets in UI applications. These types provide type-safe market identification, caching, and symbol management.
+
+## MarketId
+
+A type-safe identifier for Drift markets that handles both perpetual and spot markets.
+
+### Import
+
+```typescript
+import { MarketId } from '@drift/common';
+```
+
+### Creating Market IDs
+
+#### Perpetual Markets
+
+```typescript
+import { MarketId } from '@drift/common';
+
+const solPerpMarket = MarketId.createPerpMarket(0);
+const btcPerpMarket = MarketId.createPerpMarket(1);
+```
+
+#### Spot Markets
+
+```typescript
+const usdcSpotMarket = MarketId.createSpotMarket(0);
+const solSpotMarket = MarketId.createSpotMarket(1);
+```
+
+#### From Market Key
+
+```typescript
+import { MarketKey } from '@drift/common';
+
+const key: MarketKey = 'perp_0' as MarketKey;
+const market = MarketId.getMarketIdFromKey(key);
+```
+
+### Properties
+
+```typescript
+class MarketId {
+  readonly marketIndex: number;
+  readonly marketType: MarketType;
+  
+  get isSpot(): boolean;
+  get isPerp(): boolean;
+  get marketTypeStr(): string;
+  get key(): MarketKey;  // Unique string key for this market
+  
+  equals(other: MarketId): boolean;
+}
+```
+
+### Usage Examples
+
+#### Checking Market Type
+
+```typescript
+const market = MarketId.createPerpMarket(0);
+
+if (market.isPerp) {
+  console.log('This is a perpetual market');
+}
+
+if (market.isSpot) {
+  console.log('This is a spot market');
+}
+
+console.log(market.marketTypeStr);  // 'perp' or 'spot'
+```
+
+#### Using Market Keys
+
+```typescript
+const solPerp = MarketId.createPerpMarket(0);
+const btcPerp = MarketId.createPerpMarket(1);
+
+// Use key as a unique identifier
+const marketPrices = new Map<MarketKey, number>();
+marketPrices.set(solPerp.key, 100.50);
+marketPrices.set(btcPerp.key, 45000.00);
+
+console.log(solPerp.key);  // 'perp_0'
+console.log(btcPerp.key);  // 'perp_1'
+```
+
+#### Comparing Markets
+
+```typescript
+const market1 = MarketId.createPerpMarket(0);
+const market2 = MarketId.createPerpMarket(0);
+const market3 = MarketId.createSpotMarket(0);
+
+console.log(market1.equals(market2));  // true (same type and index)
+console.log(market1.equals(market3));  // false (different types)
+```
+
+#### Generating Market Keys
+
+```typescript
+import { MarketType } from '@drift-labs/sdk';
+
+const key = MarketId.key(0, MarketType.PERP);  // 'perp_0'
+const spotKey = MarketId.key(1, MarketType.SPOT);  // 'spot_1'
+```
+
+### Caching
+
+MarketId instances are automatically cached to ensure referential equality:
+
+```typescript
+const market1 = MarketId.createPerpMarket(0);
+const market2 = MarketId.createPerpMarket(0);
+
+console.log(market1 === market2);  // true (same instance from cache)
+```
+
+---
+
+## UIMarket
+
+An extended market type that combines MarketId with market configuration and provides UI-specific symbol formatting.
+
+### Import
+
+```typescript
+import { UIMarket } from '@drift/common';
+```
+
+### Creating UI Markets
+
+```typescript
+const solPerpMarket = UIMarket.createPerpMarket(0);
+const usdcSpotMarket = UIMarket.createSpotMarket(0);
+
+// Or from MarketId
+const marketId = MarketId.createPerpMarket(0);
+const uiMarket = UIMarket.fromMarketId(marketId);
+```
+
+### Properties
+
+```typescript
+class UIMarket {
+  readonly marketIndex: number;
+  readonly marketType: MarketType;
+  readonly marketId: MarketId;
+  readonly market: SpotMarketConfig | PerpMarketConfig;
+  
+  // Type checks
+  get isSpot(): boolean;
+  get isPerp(): boolean;
+  get marketTypeStr(): string;
+  get key(): MarketKey;
+  
+  // Market characteristics
+  get isUsdcMarket(): boolean;
+  get isStableCoinMarket(): boolean;
+  get isPredictionMarket(): boolean;
+  
+  // Precision
+  get precision(): BN;
+  get precisionExp(): number;
+  
+  // Symbols (see Symbol Types below)
+  get uiSymbols(): UISymbols;
+  
+  // Comparison
+  equals(other: UIMarket): boolean;
+}
+```
+
+### Symbol Types
+
+UIMarket provides four different symbol representations:
+
+```typescript
+type UISymbols = {
+  marketSymbol: MarketSymbol;
+  marketDisplaySymbol: MarketDisplaySymbol;
+  baseAssetSymbol: BaseAssetSymbol;
+  baseAssetDisplaySymbol: BaseAssetDisplaySymbol;
+};
+```
+
+#### Symbol Type Examples
+
+```typescript
+const wenMarket = UIMarket.createPerpMarket(/* WEN-PERP market index */);
+const jitoMarket = UIMarket.createSpotMarket(/* JitoSOL market index */);
+const ptMarket = UIMarket.createSpotMarket(/* PT-fragSOL-15JUN25 market index */);
+
+// MarketSymbol: Raw symbol from config
+wenMarket.uiSymbols.marketSymbol;  // '1KWEN-PERP'
+jitoMarket.uiSymbols.marketSymbol; // 'JitoSOL-3'
+ptMarket.uiSymbols.marketSymbol;   // 'PT-fragSOL-15JUN25-3'
+
+// MarketDisplaySymbol: User-facing market name
+wenMarket.uiSymbols.marketDisplaySymbol;  // '1KWEN-PERP'
+jitoMarket.uiSymbols.marketDisplaySymbol; // 'JitoSOL'
+ptMarket.uiSymbols.marketDisplaySymbol;   // 'PT-fragSOL-15JUN25'
+
+// BaseAssetSymbol: Underlying asset identifier
+wenMarket.uiSymbols.baseAssetSymbol;  // 'WEN'
+jitoMarket.uiSymbols.baseAssetSymbol; // 'JitoSOL'
+ptMarket.uiSymbols.baseAssetSymbol;   // 'PT-fragSOL-15JUN25'
+
+// BaseAssetDisplaySymbol: What the user is holding
+wenMarket.uiSymbols.baseAssetDisplaySymbol;  // '1KWEN'
+jitoMarket.uiSymbols.baseAssetDisplaySymbol; // 'JitoSOL'
+ptMarket.uiSymbols.baseAssetDisplaySymbol;   // 'fragSOL'
+```
+
+### Usage Examples
+
+#### Displaying Market Information
+
+```typescript
+function MarketCard({ marketIndex, marketType }: { marketIndex: number, marketType: MarketType }) {
+  const market = marketType === MarketType.PERP
+    ? UIMarket.createPerpMarket(marketIndex)
+    : UIMarket.createSpotMarket(marketIndex);
+  
+  return (
+    <div>
+      <h2>{market.uiSymbols.marketDisplaySymbol}</h2>
+      <p>Type: {market.marketTypeStr}</p>
+      <p>Base Asset: {market.uiSymbols.baseAssetDisplaySymbol}</p>
+      {market.isPredictionMarket && <span>Prediction Market</span>}
+    </div>
+  );
+}
+```
+
+#### Working with Precision
+
+```typescript
+import { BigNum } from '@drift-labs/sdk';
+
+function formatMarketAmount(amount: BN, market: UIMarket): string {
+  const bigNum = BigNum.from(amount, market.precisionExp);
+  return `${bigNum.toNum()} ${market.uiSymbols.baseAssetDisplaySymbol}`;
+}
+
+const market = UIMarket.createPerpMarket(0);
+const amount = new BN(1000000000);  // 1 SOL in base precision
+const formatted = formatMarketAmount(amount, market);
+// Returns: '1 SOL'
+```
+
+#### Filtering Markets
+
+```typescript
+function getSpotMarkets(markets: UIMarket[]): UIMarket[] {
+  return markets.filter(m => m.isSpot);
+}
+
+function getStablecoins(markets: UIMarket[]): UIMarket[] {
+  return markets.filter(m => m.isStableCoinMarket);
+}
+
+function getPredictionMarkets(markets: UIMarket[]): UIMarket[] {
+  return markets.filter(m => m.isPredictionMarket);
+}
+```
+
+#### Accessing Market Config
+
+```typescript
+const market = UIMarket.createPerpMarket(0);
+
+if (market.isPerp) {
+  const perpConfig = market.market as PerpMarketConfig;
+  console.log('Margin ratio:', perpConfig.marginRatioInitial);
+  console.log('AMM base reserves:', perpConfig.amm.baseAssetReserve);
+}
+
+if (market.isSpot) {
+  const spotConfig = market.market as SpotMarketConfig;
+  console.log('Oracle source:', spotConfig.oracleSource);
+  console.log('Mint:', spotConfig.mint);
+}
+```
+
+### Setting Custom Markets
+
+For testing or custom environments, you can set custom market configurations:
+
+```typescript
+import { PerpMarketConfig, SpotMarketConfig } from '@drift-labs/sdk';
+
+const customPerpMarkets: PerpMarketConfig[] = [
+  // Your custom perp markets
+];
+
+const customSpotMarkets: SpotMarketConfig[] = [
+  // Your custom spot markets
+];
+
+UIMarket.setPerpMarkets(customPerpMarkets);
+UIMarket.setSpotMarkets(customSpotMarkets);
+```
+
+---
+
+## MarketKey
+
+An opaque type representing a unique market identifier string.
+
+```typescript
+type MarketKey = Opaque<'MarketKey', string>;
+
+// Format: '{marketType}_{marketIndex}'
+// Examples:
+//   'perp_0'
+//   'spot_1'
+//   'perp_15'
+```
+
+### Usage
+
+```typescript
+const key: MarketKey = 'perp_0' as MarketKey;
+const market = MarketId.getMarketIdFromKey(key);
+
+// Use as Map keys
+const marketData = new Map<MarketKey, SomeData>();
+marketData.set(market.key, data);
+```
+
+---
+
+## Symbol Types
+
+### MarketSymbol
+
+Raw symbol from market configuration.
+
+```typescript
+type MarketSymbol = Opaque<string, 'MarketSymbol'>;
+
+// Examples:
+// '1KWEN-PERP'
+// 'JitoSOL-3'
+// 'PT-fragSOL-15JUN25-3'
+```
+
+### MarketDisplaySymbol
+
+User-facing market label.
+
+```typescript
+type MarketDisplaySymbol = Opaque<string, 'MarketDisplaySymbol'>;
+
+// Examples:
+// '1KWEN-PERP'
+// 'JitoSOL'
+// 'PT-fragSOL-15JUN25'
+```
+
+### BaseAssetSymbol
+
+Underlying asset identifier (used for icons, etc.).
+
+```typescript
+type BaseAssetSymbol = Opaque<string, 'BaseAssetSymbol'>;
+
+// Examples:
+// 'WEN'            (from '1KWEN-PERP')
+// 'JitoSOL'        (from 'JitoSOL-3')
+// 'PT-fragSOL-15JUN25'  (from 'PT-fragSOL-15JUN25-3')
+```
+
+### BaseAssetDisplaySymbol
+
+What the user is holding/trading.
+
+```typescript
+type BaseAssetDisplaySymbol = Opaque<string, 'BaseAssetDisplaySymbol'>;
+
+// Examples:
+// '1KWEN'     (from '1KWEN-PERP')
+// 'JitoSOL'   (from 'JitoSOL-3')
+// 'fragSOL'   (from 'PT-fragSOL-15JUN25-3')
+```
+
+---
+
+## Best Practices
+
+### Use MarketId for Identification
+
+```typescript
+// Good - type-safe market identification
+const marketId = MarketId.createPerpMarket(0);
+const priceData = getPriceData(marketId);
+
+// Avoid - error-prone manual construction
+const marketIndex = 0;
+const marketType = 'perp';
+```
+
+### Use UIMarket for Display
+
+```typescript
+// Good - consistent symbol handling
+const market = UIMarket.createPerpMarket(0);
+return <h1>{market.uiSymbols.marketDisplaySymbol}</h1>;
+
+// Avoid - manual symbol formatting
+const symbol = config.symbol.replace('-3', '').replace('PT-', '');
+```
+
+### Cache Market Instances
+
+```typescript
+// Markets are automatically cached
+const market1 = UIMarket.createPerpMarket(0);
+const market2 = UIMarket.createPerpMarket(0);
+console.log(market1 === market2);  // true
+
+// No need to create your own cache
+```
+
+### Use Proper Symbol Types
+
+```typescript
+function getMarketIcon(symbol: BaseAssetSymbol): string {
+  return `/icons/${symbol}.svg`;
+}
+
+function displayMarketName(symbol: MarketDisplaySymbol): JSX.Element {
+  return <h1>{symbol}</h1>;
+}
+
+const market = UIMarket.createPerpMarket(0);
+const icon = getMarketIcon(market.uiSymbols.baseAssetSymbol);
+const name = displayMarketName(market.uiSymbols.marketDisplaySymbol);
+```
+
+## Related
+
+- [Serializable Types](/api/types/serializable-types) - Types for data serialization
+- [Config Types](/api/types/config) - Configuration type definitions
+- [Constants](/api/types/constants) - Market and pool constants

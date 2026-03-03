@@ -8,7 +8,7 @@ The logger utility provides a Winston-based logging system with support for mult
 ## Import
 
 ```typescript
-import { logger, setLogLevel, allEnvDlog } from '@drift/common';
+import { logger, setLogLevel, allEnvDlog } from '@drift-labs/common';
 ```
 
 ## Logger Instance
@@ -45,7 +45,7 @@ The logger can be configured via environment variables:
 ### Standard Logging
 
 ```typescript
-import { logger } from '@drift/common';
+import { logger } from '@drift-labs/common';
 
 logger.info('Application started');
 logger.warning('High memory usage detected');
@@ -56,7 +56,7 @@ logger.debug('Variable state:', { value: 123 });
 ### Alert Logging (Slack Integration)
 
 ```typescript
-import { logger } from '@drift/common';
+import { logger } from '@drift-labs/common';
 
 // This will log to console AND send to Slack (if WEBHOOK_URL is configured)
 logger.alert('Critical system failure detected');
@@ -71,7 +71,7 @@ Change the minimum log level dynamically.
 </ParamField>
 
 ```typescript
-import { setLogLevel } from '@drift/common';
+import { setLogLevel } from '@drift-labs/common';
 
 // Only log warnings and above
 setLogLevel('warning');
@@ -99,7 +99,7 @@ Utility for structured debug logging with categorization.
 </ParamField>
 
 ```typescript
-import { allEnvDlog } from '@drift/common';
+import { allEnvDlog } from '@drift-labs/common';
 
 allEnvDlog('websocket', 'Connection established', { url: 'wss://...' });
 // Output: 🔧::websocket::
@@ -115,7 +115,7 @@ allEnvDlog('cache', 'Cache miss for key', 'user:123');
 The logger instance is typed as `Logger` (Winston Logger):
 
 ```typescript
-import { Logger } from '@drift/common';
+import { Logger } from '@drift-labs/common';
 
 function setupLogging(customLogger: Logger) {
   customLogger.info('Custom logger initialized');
@@ -161,7 +161,7 @@ logger.info('Message 2'); // Reuses cached template
 ## Complete Example
 
 ```typescript
-import { logger, setLogLevel, allEnvDlog } from '@drift/common';
+import { logger, setLogLevel, allEnvDlog } from '@drift-labs/common';
 
 // Configure log level
 setLogLevel('info');
@@ -223,7 +223,7 @@ For browser environments, a separate logger implementation is available:
 
 ```typescript
 // Automatically imported in browser contexts
-import { logger } from '@drift/common';
+import { logger } from '@drift-labs/common';
 ```
 
 Location: `~/workspace/source/common-ts/src/utils/logger.browser.ts`

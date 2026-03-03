@@ -32,7 +32,7 @@ const Config: {
 ### Usage
 
 ```typescript
-import { Config } from '@drift/common';
+import { Config } from '@drift-labs/common';
 
 // Check if initialized before use
 if (Config.initialized) {
@@ -76,7 +76,7 @@ function Initialize(env: DriftEnv): ReturnType<typeof initialize>
 ### Usage
 
 ```typescript
-import { Initialize } from '@drift/common';
+import { Initialize } from '@drift-labs/common';
 import { DriftEnv } from '@drift-labs/sdk';
 
 // Initialize for mainnet
@@ -86,21 +86,21 @@ console.log('Initialized with', sdkConfig.SPOT_MARKETS.length, 'spot markets');
 console.log('Initialized with', sdkConfig.PERP_MARKETS.length, 'perp markets');
 
 // Now Config is ready for use
-import { Config } from '@drift/common';
+import { Config } from '@drift-labs/common';
 console.log(Config.initialized); // true
 ```
 
 ### Example: Initialize for Devnet
 
 ```typescript
-import { Initialize } from '@drift/common';
+import { Initialize } from '@drift-labs/common';
 import { DriftEnv } from '@drift-labs/sdk';
 
 // Initialize for devnet testing
 const sdkConfig = Initialize(DriftEnv.DEVNET);
 
 // Access devnet markets
-import { Config } from '@drift/common';
+import { Config } from '@drift-labs/common';
 const usdcSpotMarket = Config.spotMarketsLookup[0];
 console.log('USDC Oracle:', usdcSpotMarket.oracle.toString());
 ```
@@ -140,7 +140,7 @@ EnvironmentConstants.rpcs: {
 ### Usage: RPC Endpoints
 
 ```typescript
-import { EnvironmentConstants } from '@drift/common';
+import { EnvironmentConstants } from '@drift-labs/common';
 
 // Get mainnet RPC endpoints
 const mainnetRpcs = EnvironmentConstants.rpcs.mainnet;
@@ -176,7 +176,7 @@ EnvironmentConstants.historyServerUrl: {
 ### Usage: History Server
 
 ```typescript
-import { EnvironmentConstants } from '@drift/common';
+import { EnvironmentConstants } from '@drift-labs/common';
 
 const env = 'mainnet';
 const historyUrl = EnvironmentConstants.historyServerUrl[env];
@@ -235,7 +235,7 @@ EnvironmentConstants.dlobServerWsUrl: {
 ### Usage: DLOB Server
 
 ```typescript
-import { EnvironmentConstants } from '@drift/common';
+import { EnvironmentConstants } from '@drift-labs/common';
 
 const env = 'mainnet';
 
@@ -270,7 +270,7 @@ EnvironmentConstants.eventsServerUrl: {
 ### Usage: Events Server
 
 ```typescript
-import { EnvironmentConstants } from '@drift/common';
+import { EnvironmentConstants } from '@drift-labs/common';
 
 // Subscribe to events
 const ws = new WebSocket(EnvironmentConstants.eventsServerUrl.mainnet);
@@ -306,7 +306,7 @@ EnvironmentConstants.swiftServerUrl: {
 ### Usage: Swift Server
 
 ```typescript
-import { EnvironmentConstants } from '@drift/common';
+import { EnvironmentConstants } from '@drift-labs/common';
 
 const env = 'mainnet';
 
@@ -329,7 +329,7 @@ console.log('Swift account:', swiftAccount);
 ## Complete Example
 
 ```typescript
-import { Initialize, Config, EnvironmentConstants } from '@drift/common';
+import { Initialize, Config, EnvironmentConstants } from '@drift-labs/common';
 import { DriftEnv } from '@drift-labs/sdk';
 import { Connection } from '@solana/web3.js';
 

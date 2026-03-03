@@ -1,0 +1,518 @@
+---
+title: "Circular Buffers"
+description: "Fixed-size circular buffer data structures for efficient data storage"
+---
+
+# Circular Buffers
+
+Drift Common provides circular buffer implementations for efficient, fixed-size data storage with automatic overflow handling.
+
+## Available Classes
+
+- **CircularBuffer** - Basic circular buffer with FIFO behavior
+- **UniqueCircularBuffer** - Circular buffer that enforces element uniqueness
+
+---
+
+## CircularBuffer
+
+A basic circular buffer implementation that stores elements in a fixed-size buffer. When the buffer is full, adding a new element removes the oldest element.
+
+### Import
+
+```typescript
+import { CircularBuffer } from '@drift/common';
+```
+
+### Constructor
+
+```typescript
+const buffer = new CircularBuffer<T>(capacity: number);
+```
+
+**Parameters:**
+- `capacity` - Maximum number of elements the buffer can hold
+
+### Properties
+
+```typescript
+class CircularBuffer<T> {
+  get size(): number;      // Current number of elements
+  get capacity(): number;  // Maximum capacity
+}
+```
+
+### Methods
+
+#### add(value: T): T | null
+
+Adds a value to the buffer. Returns the removed value if the buffer was full, or null otherwise.
+
+```typescript
+const buffer = new CircularBuffer<number>(3);
+
+buffer.add(1);  // Returns: null (buffer has space)
+buffer.add(2);  // Returns: null
+buffer.add(3);  // Returns: null
+buffer.add(4);  // Returns: 1 (oldest element removed)
+```
+
+#### toArray(): T[]
+
+Returns all elements in the buffer as an array, starting from the oldest element.
+
+```typescript
+const buffer = new CircularBuffer<number>(3);
+buffer.add(1);
+buffer.add(2);
+buffer.add(3);
+
+const arr = buffer.toArray();
+// Returns: [1, 2, 3]
+```
+
+### Usage Examples
+
+#### Price History Buffer
+
+```typescript
+import { CircularBuffer } from '@drift/common';
+
+class PriceTracker {
+  private priceHistory: CircularBuffer<number>;
+  
+  constructor(historySize: number = 100) {
+    this.priceHistory = new CircularBuffer<number>(historySize);
+  }
+  
+  addPrice(price: number) {
+    this.priceHistory.add(price);
+  }
+  
+  getAveragePrice(): number {
+    const prices = this.priceHistory.toArray();
+    if (prices.length === 0) return 0;
+    
+    const sum = prices.reduce((acc, price) => acc + price, 0);
+    return sum / prices.length;
+  }
+  
+  getPriceHistory(): number[] {
+    return this.priceHistory.toArray();
+  }
+}
+
+const tracker = new PriceTracker(10);
+tracker.addPrice(100);
+tracker.addPrice(105);
+tracker.addPrice(103);
+
+console.log(tracker.getAveragePrice());  // 102.67
+console.log(tracker.getPriceHistory());   // [100, 105, 103]
+```
+
+#### Recent Events Log
+
+```typescript
+interface LogEntry {
+  timestamp: number;
+  message: string;
+  level: 'info' | 'warning' | 'error';
+}
+
+class Logger {
+  private recentLogs: CircularBuffer<LogEntry>;
+  
+  constructor(maxLogs: number = 1000) {
+    this.recentLogs = new CircularBuffer<LogEntry>(maxLogs);
+  }
+  
+  log(message: string, level: 'info' | 'warning' | 'error' = 'info') {
+    const removed = this.recentLogs.add({
+      timestamp: Date.now(),
+      message,
+      level,
+    });
+    
+    if (removed) {
+      console.log('Oldest log removed:', removed.message);
+    }
+  }
+  
+  getRecentErrors(): LogEntry[] {
+    return this.recentLogs.toArray().filter(log => log.level === 'error');
+  }
+  
+  getRecentLogs(count?: number): LogEntry[] {
+    const logs = this.recentLogs.toArray();
+    return count ? logs.slice(-count) : logs;
+  }
+}
+
+const logger = new Logger(100);
+logger.log('Application started', 'info');
+logger.log('Connection established', 'info');
+logger.log('Failed to fetch data', 'error');
+
+const errors = logger.getRecentErrors();
+console.log(errors);  // [{ timestamp: ..., message: 'Failed to fetch data', level: 'error' }]
+```
+
+#### Moving Average Calculator
+
+```typescript
+class MovingAverage {
+  private values: CircularBuffer<number>;
+  
+  constructor(windowSize: number) {
+    this.values = new CircularBuffer<number>(windowSize);
+  }
+  
+  add(value: number): number {
+    this.values.add(value);
+    return this.getAverage();
+  }
+  
+  getAverage(): number {
+    const arr = this.values.toArray();
+    if (arr.length === 0) return 0;
+    
+    return arr.reduce((sum, val) => sum + val, 0) / arr.length;
+  }
+  
+  isFull(): boolean {
+    return this.values.size === this.values.capacity;
+  }
+}
+
+const ma = new MovingAverage(5);
+console.log(ma.add(10));  // 10
+console.log(ma.add(20));  // 15
+console.log(ma.add(30));  // 20
+console.log(ma.add(40));  // 25
+console.log(ma.add(50));  // 30
+console.log(ma.add(60));  // 40 (10 was removed)
+```
+
+---
+
+## UniqueCircularBuffer
+
+A circular buffer that only allows unique elements based on a key generator function. Attempting to add a duplicate element will be rejected.
+
+### Import
+
+```typescript
+import { UniqueCircularBuffer } from '@drift/common';
+```
+
+### Constructor
+
+```typescript
+const buffer = new UniqueCircularBuffer<T>(
+  capacity: number,
+  uniquenessKeyGenerator: (value: T) => string
+);
+```
+
+**Parameters:**
+- `capacity` - Maximum number of elements
+- `uniquenessKeyGenerator` - Function that generates a unique key for each element
+
+### Properties
+
+Inherits all properties from CircularBuffer:
+
+```typescript
+class UniqueCircularBuffer<T> extends CircularBuffer<T> {
+  get size(): number;
+  get capacity(): number;
+}
+```
+
+### Methods
+
+#### add(value: T): boolean
+
+Tries to add an element to the buffer. Returns true if the element was added, false if it was a duplicate.
+
+```typescript
+const buffer = new UniqueCircularBuffer<number>(
+  3,
+  (val) => val.toString()  // Use number as its own key
+);
+
+buffer.add(1);  // Returns: true (added)
+buffer.add(2);  // Returns: true (added)
+buffer.add(1);  // Returns: false (duplicate, not added)
+buffer.add(3);  // Returns: true (added)
+buffer.add(4);  // Returns: true (added, 1 was removed)
+buffer.add(4);  // Returns: false (duplicate, not added)
+```
+
+#### toArray(): T[]
+
+Returns all unique elements in the buffer as an array.
+
+```typescript
+const arr = buffer.toArray();
+```
+
+### Usage Examples
+
+#### Recent Transaction Tracker
+
+```typescript
+interface Transaction {
+  signature: string;
+  amount: number;
+  timestamp: number;
+}
+
+class RecentTransactions {
+  private transactions: UniqueCircularBuffer<Transaction>;
+  
+  constructor(maxTransactions: number = 100) {
+    this.transactions = new UniqueCircularBuffer<Transaction>(
+      maxTransactions,
+      (tx) => tx.signature  // Use signature as unique key
+    );
+  }
+  
+  addTransaction(tx: Transaction): boolean {
+    const added = this.transactions.add(tx);
+    
+    if (!added) {
+      console.log('Transaction already tracked:', tx.signature);
+    }
+    
+    return added;
+  }
+  
+  getRecentTransactions(): Transaction[] {
+    return this.transactions.toArray();
+  }
+  
+  getTotalAmount(): number {
+    return this.transactions
+      .toArray()
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }
+}
+
+const tracker = new RecentTransactions(10);
+
+tracker.addTransaction({
+  signature: 'abc123',
+  amount: 100,
+  timestamp: Date.now(),
+});  // Returns: true
+
+tracker.addTransaction({
+  signature: 'abc123',  // Duplicate
+  amount: 200,
+  timestamp: Date.now(),
+});  // Returns: false
+
+tracker.addTransaction({
+  signature: 'def456',
+  amount: 150,
+  timestamp: Date.now(),
+});  // Returns: true
+```
+
+#### Unique User Activity Log
+
+```typescript
+interface UserActivity {
+  userId: string;
+  action: string;
+  timestamp: number;
+}
+
+class ActivityTracker {
+  private activities: UniqueCircularBuffer<UserActivity>;
+  
+  constructor(capacity: number = 50) {
+    this.activities = new UniqueCircularBuffer<UserActivity>(
+      capacity,
+      // Generate key from userId and action
+      (activity) => `${activity.userId}:${activity.action}`
+    );
+  }
+  
+  trackActivity(userId: string, action: string): boolean {
+    return this.activities.add({
+      userId,
+      action,
+      timestamp: Date.now(),
+    });
+  }
+  
+  getUserActivities(userId: string): UserActivity[] {
+    return this.activities
+      .toArray()
+      .filter(activity => activity.userId === userId);
+  }
+  
+  getUniqueActions(): string[] {
+    const actions = new Set<string>();
+    this.activities.toArray().forEach(activity => {
+      actions.add(activity.action);
+    });
+    return Array.from(actions);
+  }
+}
+
+const tracker = new ActivityTracker(100);
+tracker.trackActivity('user1', 'login');     // true
+tracker.trackActivity('user1', 'view_page'); // true
+tracker.trackActivity('user1', 'login');     // false (duplicate)
+tracker.trackActivity('user2', 'login');     // true (different user)
+```
+
+#### Unique Market Price Updates
+
+```typescript
+import { MarketId } from '@drift/common';
+
+interface PriceUpdate {
+  market: MarketId;
+  price: number;
+  slot: number;
+}
+
+class UniquePriceUpdates {
+  private updates: UniqueCircularBuffer<PriceUpdate>;
+  
+  constructor(capacity: number = 1000) {
+    this.updates = new UniqueCircularBuffer<PriceUpdate>(
+      capacity,
+      // Unique by market and slot
+      (update) => `${update.market.key}:${update.slot}`
+    );
+  }
+  
+  addUpdate(update: PriceUpdate): boolean {
+    return this.updates.add(update);
+  }
+  
+  getUpdatesForMarket(market: MarketId): PriceUpdate[] {
+    return this.updates
+      .toArray()
+      .filter(update => update.market.equals(market))
+      .sort((a, b) => a.slot - b.slot);
+  }
+  
+  getLatestPrice(market: MarketId): number | undefined {
+    const updates = this.getUpdatesForMarket(market);
+    return updates[updates.length - 1]?.price;
+  }
+}
+
+const priceUpdates = new UniquePriceUpdates(1000);
+const solPerp = MarketId.createPerpMarket(0);
+
+priceUpdates.addUpdate({ market: solPerp, price: 100, slot: 1000 });  // true
+priceUpdates.addUpdate({ market: solPerp, price: 101, slot: 1001 });  // true
+priceUpdates.addUpdate({ market: solPerp, price: 100, slot: 1000 });  // false (duplicate slot)
+
+const latestPrice = priceUpdates.getLatestPrice(solPerp);
+console.log(latestPrice);  // 101
+```
+
+---
+
+## Choosing Between Buffer Types
+
+### Use CircularBuffer when:
+
+- You need simple FIFO behavior
+- Duplicates are allowed or expected
+- Performance is critical (no uniqueness checking)
+- You're storing time-series data
+
+**Examples:**
+- Price history
+- Event logs
+- Performance metrics
+- Moving averages
+
+### Use UniqueCircularBuffer when:
+
+- Each element must be unique
+- You want to prevent duplicate processing
+- You're tracking distinct items
+- Memory efficiency for unique items is important
+
+**Examples:**
+- Transaction signatures
+- User activities (deduplicated)
+- Unique market updates
+- Recent search queries (deduplicated)
+
+---
+
+## Performance Considerations
+
+### CircularBuffer
+
+- **add()**: O(1) - Constant time insertion
+- **toArray()**: O(n) - Linear time array creation
+- **Memory**: Fixed size, no overhead
+
+### UniqueCircularBuffer
+
+- **add()**: O(1) - Constant time with Set lookup
+- **toArray()**: O(n) - Linear time array creation
+- **Memory**: Fixed buffer size + Set for tracking unique keys
+
+---
+
+## Best Practices
+
+### Choose Appropriate Capacity
+
+```typescript
+// Good - reasonable capacity for use case
+const recentPrices = new CircularBuffer<number>(100);  // Last 100 prices
+const recentTxs = new UniqueCircularBuffer<Tx>(1000, getTxKey);  // Last 1000 unique txs
+
+// Avoid - unnecessarily large buffers
+const prices = new CircularBuffer<number>(1000000);  // Probably too large
+```
+
+### Use Efficient Key Generators
+
+```typescript
+// Good - simple, efficient key
+const buffer = new UniqueCircularBuffer<Tx>(
+  100,
+  (tx) => tx.signature  // Already a string
+);
+
+// Avoid - complex, slow key generation
+const buffer = new UniqueCircularBuffer<Tx>(
+  100,
+  (tx) => JSON.stringify(tx)  // Slow and inefficient
+);
+```
+
+### Handle Capacity Carefully
+
+```typescript
+class SafeBuffer<T> {
+  private buffer: CircularBuffer<T>;
+  
+  constructor(capacity: number) {
+    // Ensure capacity is reasonable
+    const safeCapacity = Math.max(1, Math.min(capacity, 10000));
+    this.buffer = new CircularBuffer<T>(safeCapacity);
+  }
+}
+```
+
+## Related
+
+- [COMMON_UTILS](/api/utils/common-utils) - Additional utility functions
+- [Math Utilities](/api/utils/math) - Math operations for buffer data

@@ -26,7 +26,7 @@ Most types come in two variants:
 The module exports serialization utilities through the `CommonSerializationUtils` object:
 
 ```typescript
-import { CommonSerializationUtils } from '@drift/common';
+import { CommonSerializationUtils } from '@drift-labs/common';
 
 // Serialize an order record
 const serialized = Serialize(orderRecord, SerializableOrderRecord);
@@ -423,7 +423,7 @@ CommonSerializationUtils.deserialize.UISwapRecord(json)
 Before using UI serializable types, initialize the Config:
 
 ```typescript
-import { Initialize } from '@drift/common';
+import { Initialize } from '@drift-labs/common';
 import { DriftEnv } from '@drift-labs/sdk';
 
 // Initialize config with environment

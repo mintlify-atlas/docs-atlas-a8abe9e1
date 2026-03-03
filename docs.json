@@ -57,6 +57,8 @@
             "group": "Common Utilities",
             "pages": [
               "api/utils/overview",
+              "api/utils/common-utils",
+              "api/utils/circular-buffers",
               "api/utils/math",
               "api/utils/logger",
               "api/utils/token",
@@ -104,9 +106,22 @@
             ]
           },
           {
+            "group": "React Stores",
+            "pages": [
+              "api/react/stores/overview"
+            ]
+          },
+          {
+            "group": "React Providers",
+            "pages": [
+              "api/react/providers/overview"
+            ]
+          },
+          {
             "group": "Types",
             "pages": [
               "api/types/serializable-types",
+              "api/types/ui-types",
               "api/types/config",
               "api/types/constants"
             ]

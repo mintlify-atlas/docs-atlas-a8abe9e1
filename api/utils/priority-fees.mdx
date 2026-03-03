@@ -13,7 +13,7 @@ import {
   PriorityFeeStrategyFactory,
   DRIFT_TX_COMPUTE_UNIT_ESTIMATE,
   SANITY_CHECK_ABS_MAX_FEE_IN_SOL
-} from '@drift/common';
+} from '@drift-labs/common';
 ```
 
 ## PriorityFeeCalculator
@@ -41,7 +41,7 @@ Calculate the compute unit price to use based on recent fee samples and multipli
 </ResponseField>
 
 ```typescript
-import { PriorityFeeCalculator } from '@drift/common';
+import { PriorityFeeCalculator } from '@drift-labs/common';
 
 const cuPrice = PriorityFeeCalculator.calculateDynamicCUPriceToUse({
   latestFeeSample: 5000, // From priority fee subscriber
@@ -70,7 +70,7 @@ Convert compute unit price to SOL fee amount.
 </ResponseField>
 
 ```typescript
-import { PriorityFeeCalculator } from '@drift/common';
+import { PriorityFeeCalculator } from '@drift-labs/common';
 
 const feeInSol = PriorityFeeCalculator.getPriorityFeeInSolForComputeUnitPrice(
   10000,  // CU price
@@ -102,7 +102,7 @@ Calculate priority fee in USD.
 </ResponseField>
 
 ```typescript
-import { PriorityFeeCalculator } from '@drift/common';
+import { PriorityFeeCalculator } from '@drift-labs/common';
 
 const feeInUsd = PriorityFeeCalculator.calculatePriorityFeeInUsd(
   10000,  // CU price
@@ -131,7 +131,7 @@ Calculate the compute unit price needed to achieve a target SOL fee.
 </ResponseField>
 
 ```typescript
-import { PriorityFeeCalculator } from '@drift/common';
+import { PriorityFeeCalculator } from '@drift-labs/common';
 
 // What CU price gives us a 0.01 SOL fee?
 const cuPrice = PriorityFeeCalculator.calculateCUPriceForTargetSolValue(
@@ -164,7 +164,7 @@ Creates a strategy that maintains a moving window of fee samples and returns the
 </ResponseField>
 
 ```typescript
-import { PriorityFeeStrategyFactory } from '@drift/common';
+import { PriorityFeeStrategyFactory } from '@drift-labs/common';
 import type { SolanaPriorityFeeResponse } from '@drift-labs/sdk';
 
 // Create a strategy that uses 75th percentile of last 50 slots
@@ -192,7 +192,7 @@ console.log('Recommended Fee:', recommendedFee);
 Estimated compute units for a typical Drift transaction.
 
 ```typescript
-import { DRIFT_TX_COMPUTE_UNIT_ESTIMATE } from '@drift/common';
+import { DRIFT_TX_COMPUTE_UNIT_ESTIMATE } from '@drift-labs/common';
 
 console.log(DRIFT_TX_COMPUTE_UNIT_ESTIMATE);
 // 600000
@@ -203,7 +203,7 @@ console.log(DRIFT_TX_COMPUTE_UNIT_ESTIMATE);
 Maximum allowed fee in SOL (safety check).
 
 ```typescript
-import { SANITY_CHECK_ABS_MAX_FEE_IN_SOL } from '@drift/common';
+import { SANITY_CHECK_ABS_MAX_FEE_IN_SOL } from '@drift-labs/common';
 
 console.log(SANITY_CHECK_ABS_MAX_FEE_IN_SOL);
 // 1 SOL
@@ -214,7 +214,7 @@ console.log(SANITY_CHECK_ABS_MAX_FEE_IN_SOL);
 Maximum allowed compute unit price (derived from max fee).
 
 ```typescript
-import { SANITY_CHECK_ABS_MAX_CU_PRICE } from '@drift/common';
+import { SANITY_CHECK_ABS_MAX_CU_PRICE } from '@drift-labs/common';
 
 console.log(SANITY_CHECK_ABS_MAX_CU_PRICE);
 // 1666667 (equals 1 SOL for 600k CU)
@@ -229,7 +229,7 @@ import {
   PriorityFeeCalculator,
   PriorityFeeStrategyFactory,
   DRIFT_TX_COMPUTE_UNIT_ESTIMATE
-} from '@drift/common';
+} from '@drift-labs/common';
 import type { SolanaPriorityFeeResponse } from '@drift-labs/sdk';
 
 // 1. Create a fee strategy
@@ -270,7 +270,7 @@ console.log(`Estimated Fee: ${feeInSol} SOL`);
 ### Fee Budgeting
 
 ```typescript
-import { PriorityFeeCalculator } from '@drift/common';
+import { PriorityFeeCalculator } from '@drift-labs/common';
 
 // Set a maximum fee budget
 const maxBudgetSol = 0.01; // 0.01 SOL max
@@ -305,7 +305,7 @@ console.log(`Actual Fee: $${actualFeeUsd.toFixed(4)}`);
 import {
   PriorityFeeCalculator,
   PriorityFeeStrategyFactory
-} from '@drift/common';
+} from '@drift-labs/common';
 
 class AdaptiveFeeManager {
   private strategy = PriorityFeeStrategyFactory.movingWindowTargetPercentileStrategy(

@@ -15,7 +15,7 @@ import {
   createTokenAccountIx,
   TOKEN_PROGRAM_ID,
   createTransferCheckedInstruction
-} from '@drift/common';
+} from '@drift-labs/common';
 ```
 
 ## Functions
@@ -37,7 +37,7 @@ Get the associated token address for a given mint and user.
 </ResponseField>
 
 ```typescript
-import { getTokenAddress } from '@drift/common';
+import { getTokenAddress } from '@drift-labs/common';
 
 const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const userWallet = 'YourWalletPublicKey...';
@@ -67,7 +67,7 @@ Get the associated token address for deposits and withdrawals. For SOL, returns 
 </ResponseField>
 
 ```typescript
-import { getTokenAddressForDepositAndWithdraw } from '@drift/common';
+import { getTokenAddressForDepositAndWithdraw } from '@drift-labs/common';
 import { PublicKey } from '@solana/web3.js';
 import { WRAPPED_SOL_MINT } from '@drift-labs/sdk';
 
@@ -114,7 +114,7 @@ Get the token account for a given mint and user, including account data.
 </ResponseField>
 
 ```typescript
-import { getTokenAccount } from '@drift/common';
+import { getTokenAccount } from '@drift-labs/common';
 import { Connection } from '@solana/web3.js';
 
 const connection = new Connection('https://api.mainnet-beta.solana.com');
@@ -152,7 +152,7 @@ Create a transaction instruction to create an associated token account.
 </ResponseField>
 
 ```typescript
-import { createTokenAccountIx } from '@drift/common';
+import { createTokenAccountIx } from '@drift-labs/common';
 import { PublicKey, Transaction } from '@solana/web3.js';
 
 const owner = new PublicKey('OwnerPublicKey...');
@@ -180,7 +180,7 @@ The following functions are re-exported from `@solana/spl-token` for convenience
 ### TOKEN_PROGRAM_ID
 
 ```typescript
-import { TOKEN_PROGRAM_ID } from '@drift/common';
+import { TOKEN_PROGRAM_ID } from '@drift-labs/common';
 
 console.log(TOKEN_PROGRAM_ID.toString());
 // TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
@@ -191,7 +191,7 @@ console.log(TOKEN_PROGRAM_ID.toString());
 Create a transfer instruction with token amount verification.
 
 ```typescript
-import { createTransferCheckedInstruction, TOKEN_PROGRAM_ID } from '@drift/common';
+import { createTransferCheckedInstruction, TOKEN_PROGRAM_ID } from '@drift-labs/common';
 import { PublicKey } from '@solana/web3.js';
 
 const source = new PublicKey('SourceTokenAccount...');
@@ -217,7 +217,7 @@ const transferIx = createTransferCheckedInstruction(
 import {
   getTokenAddressForDepositAndWithdraw,
   createTokenAccountIx,
-} from '@drift/common';
+} from '@drift-labs/common';
 import { PublicKey, Connection, Transaction } from '@solana/web3.js';
 import { DriftClient } from '@drift-labs/sdk';
 
@@ -252,7 +252,7 @@ await driftClient.deposit(
 ### Handle SOL vs SPL Tokens
 
 ```typescript
-import { getTokenAddressForDepositAndWithdraw } from '@drift/common';
+import { getTokenAddressForDepositAndWithdraw } from '@drift-labs/common';
 import { PublicKey } from '@solana/web3.js';
 import { WRAPPED_SOL_MINT } from '@drift-labs/sdk';
 
@@ -285,7 +285,7 @@ const usdcAddress = await getDepositAddress(usdcMint, wallet);
 ### Working with Token-2022 Tokens
 
 ```typescript
-import { getTokenAddressForDepositAndWithdraw } from '@drift/common';
+import { getTokenAddressForDepositAndWithdraw } from '@drift-labs/common';
 import { PublicKey } from '@solana/web3.js';
 import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 

@@ -8,7 +8,7 @@ The `MultiplexWebSocket` class allows multiple subscriptions to share a single W
 ## Import
 
 ```typescript
-import { MultiplexWebSocket } from '@drift/common';
+import { MultiplexWebSocket } from '@drift-labs/common';
 ```
 
 ## Core Concepts
@@ -96,7 +96,7 @@ Create a new WebSocket subscription (or add to existing connection).
 ### Simple Subscription
 
 ```typescript
-import { MultiplexWebSocket } from '@drift/common';
+import { MultiplexWebSocket } from '@drift-labs/common';
 
 const { unsubscribe } = MultiplexWebSocket.createWebSocketSubscription({
   wsUrl: 'wss://api.example.com/ws',
@@ -126,7 +126,7 @@ unsubscribe();
 ### Multiple Subscriptions (Same URL)
 
 ```typescript
-import { MultiplexWebSocket } from '@drift/common';
+import { MultiplexWebSocket } from '@drift-labs/common';
 
 // First subscription - creates new WebSocket
 const tradesUnsub = MultiplexWebSocket.createWebSocketSubscription({
@@ -268,7 +268,7 @@ const { unsubscribe } = MultiplexWebSocket.createWebSocketSubscription<TradeMess
 ### Drift WebSocket Subscription
 
 ```typescript
-import { MultiplexWebSocket } from '@drift/common';
+import { MultiplexWebSocket } from '@drift-labs/common';
 
 interface DriftTradeMessage {
   channel: 'trades';
@@ -359,7 +359,7 @@ subscriber.close();
 ### Multi-Channel Subscription Manager
 
 ```typescript
-import { MultiplexWebSocket } from '@drift/common';
+import { MultiplexWebSocket } from '@drift-labs/common';
 
 class WebSocketManager {
   private subscriptions = new Map<string, () => void>();

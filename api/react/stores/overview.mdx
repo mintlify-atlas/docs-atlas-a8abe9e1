@@ -1,0 +1,437 @@
+---
+title: "React Stores"
+description: "Global state management stores for Drift applications"
+---
+
+# React Stores
+
+Drift Common provides several Zustand-based stores for managing global application state. These stores handle wallet connections, Drift client state, oracle prices, and UI state.
+
+## Available Stores
+
+### useCommonDriftStore
+
+The main store for Drift client state, wallet connections, and core application data.
+
+### useOraclePriceStore
+
+Manages oracle price data for all markets.
+
+### useScreenSizeStore
+
+Tracks responsive breakpoints and screen size.
+
+---
+
+## useCommonDriftStore
+
+The central store for managing Drift client connections, user accounts, and wallet state.
+
+### Import
+
+```typescript
+import { useCommonDriftStore, initializeDriftStore } from '@drift/react';
+```
+
+### Initialization
+
+Before using the store, you must initialize it with your environment configuration:
+
+```typescript
+import { initializeDriftStore } from '@drift/react';
+import { DriftEnv } from '@drift-labs/sdk';
+
+initializeDriftStore({
+  driftEnv: 'mainnet-beta' as DriftEnv,
+  basePollingRateMs: 1000,
+  priorityFeePollingMultiplier: 1,
+  rpcOverride: undefined,
+  isDev: false,
+  subscribeToAccounts: true,
+  txSenderRetryInterval: 2000,
+  additionalTxSenderCallbacks: [],
+});
+```
+
+### Store Shape
+
+```typescript
+interface CommonDriftStore {
+  // Wallet & Authority
+  authority: PublicKey | null | undefined;
+  authorityString: string;
+  currentlyConnectedWalletContext: WalletContextState | null;
+  
+  // Connection State
+  connection: Connection | undefined;
+  currentSolBalance: {
+    value: BigNum;
+    loaded: boolean;
+  };
+  
+  // Environment Configuration
+  env: {
+    driftEnv: DriftEnv;
+    basePollingRateMs: number;
+    priorityFeePollingMultiplier: number;
+    rpcOverride: string | undefined;
+    isDev?: boolean;
+    subscribeToAccounts?: boolean;
+    txSenderRetryInterval: number;
+    additionalTxSenderCallbacks?: ((base58EncodedTx: string) => void)[];
+  };
+  
+  // Drift Client
+  sdkConfig: ReturnType<typeof initialize> | undefined;
+  driftClient: {
+    client?: DriftClient;
+    updateSignaler: any;
+    isSubscribed: boolean;
+  };
+  bulkAccountLoader: BulkAccountLoader | undefined;
+  
+  // User Data
+  userAccounts: UserAccount[];
+  userAccountNotInitialized: boolean | undefined;
+  subscribedToSubaccounts: boolean | undefined;
+  
+  // State Flags
+  isGeoBlocked: boolean;
+  emulationMode: boolean;
+  pollingMultiplier: number;
+  
+  // Methods
+  set: (x: (s: CommonDriftStore) => void) => void;
+  get: () => CommonDriftStore;
+  clearUserData: () => void;
+  checkIsDriftClientReady: () => boolean;
+  actions: ReturnType<typeof createDriftActions>;
+}
+```
+
+### Usage Examples
+
+#### Accessing Wallet State
+
+```typescript
+function WalletInfo() {
+  const authority = useCommonDriftStore((s) => s.authority);
+  const solBalance = useCommonDriftStore((s) => s.currentSolBalance);
+  
+  return (
+    <div>
+      <p>Wallet: {authority?.toBase58()}</p>
+      {solBalance.loaded && (
+        <p>Balance: {solBalance.value.toNum()} SOL</p>
+      )}
+    </div>
+  );
+}
+```
+
+#### Checking Drift Client Status
+
+```typescript
+function ClientStatus() {
+  const checkReady = useCommonDriftStore((s) => s.checkIsDriftClientReady);
+  const isReady = checkReady();
+  
+  return <div>Client Ready: {isReady ? 'Yes' : 'No'}</div>;
+}
+```
+
+#### Accessing User Accounts
+
+```typescript
+function UserAccountsList() {
+  const userAccounts = useCommonDriftStore((s) => s.userAccounts);
+  
+  return (
+    <ul>
+      {userAccounts.map((account, idx) => (
+        <li key={idx}>Account {idx}: {account.authority.toBase58()}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+#### Updating Store State
+
+```typescript
+function ToggleEmulationMode() {
+  const set = useCommonDriftStore((s) => s.set);
+  const emulationMode = useCommonDriftStore((s) => s.emulationMode);
+  
+  const toggle = () => {
+    set((s) => {
+      s.emulationMode = !s.emulationMode;
+    });
+  };
+  
+  return (
+    <button onClick={toggle}>
+      Emulation: {emulationMode ? 'ON' : 'OFF'}
+    </button>
+  );
+}
+```
+
+---
+
+## useOraclePriceStore
+
+Manages oracle price data for all markets in the application.
+
+### Import
+
+```typescript
+import { useOraclePriceStore } from '@drift/react';
+```
+
+### Store Shape
+
+```typescript
+interface OraclePriceStore {
+  set: (x: (s: OraclePriceStore) => void) => void;
+  get: () => OraclePriceStore;
+  getMarketPriceData: (market: MarketId) => OraclePriceInfo;
+  symbolMap: {
+    [index: string]: OraclePriceInfo;
+  };
+}
+
+type FormattedOraclePriceData = {
+  price: number;
+  slot: number;
+  confidence: number;
+  twap?: number;
+  twapConfidence?: number;
+  maxPrice?: number;
+};
+
+type OraclePriceInfo = {
+  market: UIMarket;
+  priceData: FormattedOraclePriceData;
+  rawPriceData: OraclePriceData;
+};
+```
+
+### Usage Examples
+
+#### Getting Market Price
+
+```typescript
+import { MarketId } from '@drift/common';
+
+function MarketPrice({ marketId }: { marketId: MarketId }) {
+  const getMarketPriceData = useOraclePriceStore((s) => s.getMarketPriceData);
+  const priceInfo = getMarketPriceData(marketId);
+  
+  if (!priceInfo) return <div>Loading...</div>;
+  
+  return (
+    <div>
+      <p>Price: ${priceInfo.priceData.price.toFixed(2)}</p>
+      <p>Confidence: ±{priceInfo.priceData.confidence}</p>
+      {priceInfo.priceData.twap && (
+        <p>TWAP: ${priceInfo.priceData.twap.toFixed(2)}</p>
+      )}
+    </div>
+  );
+}
+```
+
+#### Accessing All Market Prices
+
+```typescript
+function AllMarketPrices() {
+  const symbolMap = useOraclePriceStore((s) => s.symbolMap);
+  
+  return (
+    <div>
+      {Object.entries(symbolMap).map(([key, priceInfo]) => (
+        <div key={key}>
+          {priceInfo.market.symbol}: ${priceInfo.priceData.price.toFixed(2)}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+## useScreenSizeStore
+
+Tracks the current screen size based on configurable breakpoints.
+
+### Import
+
+```typescript
+import { 
+  useScreenSizeStore, 
+  useSyncScreenSize, 
+  useIsMobileScreenSize,
+  DEFAULT_BREAKPOINTS 
+} from '@drift/react';
+```
+
+### Store Shape
+
+```typescript
+type ScreenSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+
+interface ScreenSizeStore {
+  set: (x: (s: ScreenSizeStore) => void) => void;
+  get: () => ScreenSizeStore;
+  screenSize: ScreenSize;
+}
+
+type Breakpoints = {
+  xs: number;
+  sm: number;
+  md: number;
+  lg: number;
+  xl: number;
+};
+```
+
+### Default Breakpoints
+
+Breakpoints follow Tailwind CSS conventions:
+
+```typescript
+const DEFAULT_BREAKPOINTS = {
+  xs: 0,
+  sm: 640,
+  md: 768,
+  lg: 1024,
+  xl: 1280,
+  '2xl': 1536,
+};
+```
+
+### Usage Examples
+
+#### Setting Up Screen Size Sync
+
+```typescript
+import { useSyncScreenSize, DEFAULT_BREAKPOINTS } from '@drift/react';
+
+function App() {
+  // Initialize screen size tracking
+  useSyncScreenSize(DEFAULT_BREAKPOINTS);
+  
+  return <YourApp />;
+}
+```
+
+#### Using Custom Breakpoints
+
+```typescript
+const customBreakpoints = {
+  xs: 0,
+  sm: 480,
+  md: 768,
+  lg: 1200,
+  xl: 1600,
+};
+
+useSyncScreenSize(customBreakpoints);
+```
+
+#### Responsive Components
+
+```typescript
+function ResponsiveComponent() {
+  const screenSize = useScreenSizeStore((s) => s.screenSize);
+  
+  return (
+    <div>
+      {screenSize === 'xs' && <MobileView />}
+      {screenSize === 'sm' && <TabletView />}
+      {(screenSize === 'md' || screenSize === 'lg' || screenSize === 'xl') && (
+        <DesktopView />
+      )}
+    </div>
+  );
+}
+```
+
+#### Mobile Detection Helper
+
+```typescript
+import { useIsMobileScreenSize } from '@drift/react';
+
+function Navigation() {
+  const isMobile = useIsMobileScreenSize();
+  
+  return isMobile ? <MobileNav /> : <DesktopNav />;
+}
+```
+
+---
+
+## Priority Fee Stores
+
+Drift Common also includes stores for managing priority fees. These are typically used internally by the Drift providers but can be accessed if needed.
+
+See the [Priority Fees Hook](/api/react/hooks/priority-fees) documentation for more details on working with priority fees.
+
+---
+
+## Best Practices
+
+### Store Initialization
+
+Always initialize stores before rendering your app:
+
+```typescript
+import { initializeDriftStore } from '@drift/react';
+
+initializeDriftStore({
+  driftEnv: 'mainnet-beta',
+  basePollingRateMs: 1000,
+  priorityFeePollingMultiplier: 1,
+  txSenderRetryInterval: 2000,
+});
+
+ReactDOM.render(<App />, document.getElementById('root'));
+```
+
+### Selective Subscriptions
+
+Only subscribe to the state you need to avoid unnecessary re-renders:
+
+```typescript
+// Good - only subscribes to authority changes
+const authority = useCommonDriftStore((s) => s.authority);
+
+// Avoid - subscribes to entire store
+const store = useCommonDriftStore();
+```
+
+### Clearing User Data
+
+Clear user data when disconnecting:
+
+```typescript
+function DisconnectButton() {
+  const clearUserData = useCommonDriftStore((s) => s.clearUserData);
+  const wallet = useWallet();
+  
+  const handleDisconnect = async () => {
+    await wallet.disconnect();
+    clearUserData();
+  };
+  
+  return <button onClick={handleDisconnect}>Disconnect</button>;
+}
+```
+
+## Related
+
+- [DriftProvider](/api/react/providers/overview) - Provider components that manage these stores
+- [Drift Client Hook](/api/react/hooks/drift-client) - Hook for accessing the Drift client
+- [Oracle Price Hook](/api/react/hooks/oracle-price) - Hook for oracle price data

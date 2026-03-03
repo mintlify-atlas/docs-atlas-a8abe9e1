@@ -12,7 +12,7 @@ Drift Common provides environment-specific constants for connecting to different
 The central configuration object for all environment-specific settings:
 
 ```typescript
-import { EnvironmentConstants } from '@drift/common';
+import { EnvironmentConstants } from '@drift-labs/common';
 
 // Access mainnet endpoints
 const mainnetRpcs = EnvironmentConstants.rpcs.mainnet;
@@ -336,7 +336,7 @@ Drift clients automatically use the correct endpoints based on the environment:
 ### AuthorityDrift
 
 ```typescript
-import { AuthorityDrift } from '@drift/common';
+import { AuthorityDrift } from '@drift-labs/common';
 
 const authorityDrift = new AuthorityDrift({
   solanaRpcEndpoint: EnvironmentConstants.rpcs.mainnet[0].value,
@@ -350,7 +350,7 @@ See AuthorityDrift/index.ts:267-285 for endpoint setup.
 ### CentralServerDrift
 
 ```typescript
-import { CentralServerDrift } from '@drift/common';
+import { CentralServerDrift } from '@drift-labs/common';
 
 const serverDrift = new CentralServerDrift({
   solanaRpcEndpoint: EnvironmentConstants.rpcs.mainnet[0].value,
@@ -389,7 +389,7 @@ See apiUrls.ts:7-31 for API URL constants.
 
 **Usage**
 ```typescript
-import { API_URLS, API_ENDPOINTS } from '@drift/common';
+import { API_URLS, API_ENDPOINTS } from '@drift-labs/common';
 
 // Fetch funding rates
 const response = await fetch(
@@ -419,7 +419,7 @@ SOLANA_RPC_URL=https://drift-drift_ma-39b5.mainnet.rpcpool.com/
 ```typescript
 // config.ts
 import { DriftEnv } from '@drift-labs/sdk';
-import { EnvironmentConstants } from '@drift/common';
+import { EnvironmentConstants } from '@drift-labs/common';
 
 export const getConfig = () => {
   const env = (process.env.DRIFT_ENV || 'devnet') as DriftEnv;

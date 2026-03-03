@@ -1,0 +1,345 @@
+---
+title: "COMMON_UTILS"
+description: "Utility functions for market data, math operations, and data manipulation"
+---
+
+# COMMON_UTILS
+
+The `COMMON_UTILS` object provides a collection of utility functions for working with Drift markets, performing calculations, and manipulating data structures.
+
+## Import
+
+```typescript
+import { COMMON_UTILS } from '@drift/common';
+```
+
+## Market Data Utilities
+
+### getIfVaultBalance
+
+Gets the insurance fund vault balance.
+
+```typescript
+COMMON_UTILS.getIfVaultBalance(/* parameters */);
+```
+
+### getIfStakingVaultApr
+
+Gets the APR for the insurance fund staking vault.
+
+```typescript
+COMMON_UTILS.getIfStakingVaultApr(/* parameters */);
+```
+
+### getCurrentOpenInterestForMarket
+
+Returns the quote amount of the current open interest for a market using the current oracle price.
+
+```typescript
+const openInterest = COMMON_UTILS.getCurrentOpenInterestForMarket(
+  marketIndex: number,
+  marketType: MarketType,
+  driftClient: DriftClient
+);
+```
+
+**Parameters:**
+- `marketIndex` - The index of the market
+- `marketType` - The type of market (PERP or SPOT)
+- `driftClient` - Instance of DriftClient
+
+**Returns:** `number` - The open interest in quote asset terms
+
+**Note:** This function only works for PERP markets and will throw an error for SPOT markets.
+
+### getDepositAprForMarket
+
+Gets the deposit APR for a spot market, returned as a percentage.
+
+```typescript
+const depositApr = COMMON_UTILS.getDepositAprForMarket(
+  marketIndex: number,
+  marketType: MarketType,
+  driftClient: DriftClient
+);
+```
+
+**Parameters:**
+- `marketIndex` - The index of the spot market
+- `marketType` - Must be `MarketType.SPOT`
+- `driftClient` - Instance of DriftClient
+
+**Returns:** `number` - The deposit APR as a percentage
+
+### getBorrowAprForMarket
+
+Gets the borrow APR for a spot market, returned as a percentage.
+
+```typescript
+const borrowApr = COMMON_UTILS.getBorrowAprForMarket(
+  marketIndex: number,
+  marketType: MarketType,
+  driftClient: DriftClient
+);
+```
+
+**Parameters:**
+- `marketIndex` - The index of the spot market
+- `marketType` - Must be `MarketType.SPOT`
+- `driftClient` - Instance of DriftClient
+
+**Returns:** `number` - The borrow APR as a percentage
+
+### getTotalBorrowsForMarket
+
+Gets the total borrows for a spot market in quote asset terms.
+
+```typescript
+const totalBorrows = COMMON_UTILS.getTotalBorrowsForMarket(
+  market: SpotMarketConfig,
+  driftClient: DriftClient
+);
+```
+
+**Returns:** `number` - Total borrows in quote asset, fixed to 2 decimal places
+
+### getTotalDepositsForMarket
+
+Gets the total deposits for a spot market.
+
+```typescript
+const deposits = COMMON_UTILS.getTotalDepositsForMarket(
+  market: SpotMarketConfig,
+  driftClient: DriftClient
+);
+```
+
+**Returns:** Object with:
+- `totalDepositsBase` - Total deposits in base asset
+- `totalDepositsQuote` - Total deposits in quote asset
+
+## String Utilities
+
+### toSnakeCase
+
+Converts a string to snake_case format.
+
+```typescript
+const snakeCase = COMMON_UTILS.toSnakeCase('MyVariableName');
+// Returns: 'my_variable_name'
+```
+
+### toCamelCase
+
+Converts a string to camelCase format.
+
+```typescript
+const camelCase = COMMON_UTILS.toCamelCase('my_variable_name');
+// Returns: 'myVariableName'
+```
+
+### normalizeBaseAssetSymbol
+
+Normalizes base asset symbols by removing prefixes like "1M".
+
+```typescript
+const normalized = COMMON_UTILS.normalizeBaseAssetSymbol('1MWEN');
+// Returns: 'WEN'
+```
+
+## Math Utilities
+
+### MATH.NUM - Number Math Operations
+
+#### mean
+
+Calculates the mean (average) of an array of numbers.
+
+```typescript
+const average = COMMON_UTILS.MATH.NUM.mean([1, 2, 3, 4, 5]);
+// Returns: 3
+```
+
+#### median
+
+Calculates the median of an array of numbers.
+
+```typescript
+const median = COMMON_UTILS.MATH.NUM.median([1, 2, 3, 4, 5]);
+// Returns: 3
+```
+
+### MATH.BN - BigNumber Math Operations
+
+#### bnMax
+
+Finds the maximum value in an array of BN (BigNumber) values.
+
+```typescript
+import { BN } from '@drift-labs/sdk';
+
+const max = COMMON_UTILS.MATH.BN.bnMax([new BN(100), new BN(200), new BN(50)]);
+// Returns: BN(200)
+```
+
+#### bnMin
+
+Finds the minimum value in an array of BN values.
+
+```typescript
+const min = COMMON_UTILS.MATH.BN.bnMin([new BN(100), new BN(200), new BN(50)]);
+// Returns: BN(50)
+```
+
+#### bnMean
+
+Calculates the mean of an array of BN values.
+
+```typescript
+const mean = COMMON_UTILS.MATH.BN.bnMean([new BN(100), new BN(200), new BN(300)]);
+// Returns: BN(200)
+```
+
+#### bnMedian
+
+Calculates the median of an array of BN values.
+
+```typescript
+const median = COMMON_UTILS.MATH.BN.bnMedian([new BN(100), new BN(200), new BN(300)]);
+// Returns: BN(200)
+```
+
+### calculateZScore
+
+Calculates the number of standard deviations between a target value and a history of values.
+
+```typescript
+const zScore = COMMON_UTILS.calculateZScore(
+  target: number,
+  previousValues: number[]
+);
+```
+
+**Example:**
+```typescript
+const zScore = COMMON_UTILS.calculateZScore(150, [100, 110, 120, 130, 140]);
+// Returns the z-score indicating how many standard deviations 150 is from the mean
+```
+
+## Data Manipulation Utilities
+
+### dividesExactly
+
+Checks if numbers divide exactly, accounting for floating point precision issues.
+
+```typescript
+const divides = COMMON_UTILS.dividesExactly(
+  numerator: number,
+  denominator: number
+);
+```
+
+**Returns:** `boolean` - True if numbers divide exactly
+
+### getTieredSortScore
+
+Helper utility for multi-level sorting. Returns a sort score based on multiple criteria.
+
+```typescript
+const score = COMMON_UTILS.getTieredSortScore(
+  aScores: number[],
+  bScores: number[]
+);
+```
+
+**Example:**
+```typescript
+// Sort students by grade, then by age if grades are equal
+students.sort((a, b) => 
+  COMMON_UTILS.getTieredSortScore(
+    [a.grade, a.age],
+    [b.grade, b.age]
+  )
+);
+```
+
+### glueArray
+
+Groups array elements into sub-arrays of a specified size.
+
+```typescript
+const grouped = COMMON_UTILS.glueArray<T>(
+  size: number,
+  elements: T[]
+);
+```
+
+**Example:**
+```typescript
+const result = COMMON_UTILS.glueArray(2, [1, 2, 3, 4, 5]);
+// Returns: [[1, 2], [3, 4], [5]]
+```
+
+### chunks
+
+Splits an array into chunks of a specified size.
+
+```typescript
+const chunked = COMMON_UTILS.chunks<T>(
+  array: readonly T[],
+  size: number
+);
+```
+
+**Example:**
+```typescript
+const result = COMMON_UTILS.chunks([1, 2, 3, 4, 5], 2);
+// Returns: [[1, 2], [3, 4], [5]]
+```
+
+## Async Utilities
+
+### timedPromise
+
+Wraps a promise and returns both the result and the execution time.
+
+```typescript
+const { promiseResult, promiseTime } = await COMMON_UTILS.timedPromise(
+  promise: Promise<T>
+);
+```
+
+**Returns:** Object with:
+- `promiseResult` - The result of the promise
+- `promiseTime` - Execution time in milliseconds
+
+**Example:**
+```typescript
+const { promiseResult, promiseTime } = await COMMON_UTILS.timedPromise(
+  fetch('https://api.example.com/data')
+);
+console.log(`Request took ${promiseTime}ms`);
+```
+
+### getMultipleAccountsInfoChunked
+
+Fetches multiple Solana accounts in chunks to avoid RPC limits.
+
+```typescript
+import { Connection, PublicKey } from '@solana/web3.js';
+
+const accountsInfo = await COMMON_UTILS.getMultipleAccountsInfoChunked(
+  connection: Connection,
+  accounts: PublicKey[]
+);
+```
+
+**Returns:** `Promise<(AccountInfo<Buffer> | null)[]>`
+
+**Note:** Automatically chunks requests into groups of 100 (the RPC limit) and combines results.
+
+## Related
+
+- [ENUM_UTILS](/api/utils/enum-utils) - Enum manipulation utilities
+- [Math Utilities](/api/utils/math) - Additional math functions
+- [Circular Buffers](/api/utils/circular-buffers) - Data structure utilities

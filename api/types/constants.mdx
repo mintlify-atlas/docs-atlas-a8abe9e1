@@ -145,7 +145,7 @@ const UI_ORDER_TYPES_LIST = Object.values(UI_ORDER_TYPES);
 ### Usage
 
 ```typescript
-import { UI_ORDER_TYPES, UI_ORDER_TYPES_LIST } from '@drift/common';
+import { UI_ORDER_TYPES, UI_ORDER_TYPES_LIST } from '@drift-labs/common';
 
 // Get order type config
 const limitOrderConfig = UI_ORDER_TYPES.limit;
@@ -181,8 +181,8 @@ const CBBTC_SPOT_MARKET_INDEX = 27;
 ### Usage
 
 ```typescript
-import { SOL_SPOT_MARKET_INDEX, USDC_SPOT_MARKET_INDEX } from '@drift/common';
-import { Config } from '@drift/common';
+import { SOL_SPOT_MARKET_INDEX, USDC_SPOT_MARKET_INDEX } from '@drift-labs/common';
+import { Config } from '@drift-labs/common';
 
 // Get SOL spot market config
 const solMarket = Config.spotMarketsLookup[SOL_SPOT_MARKET_INDEX];
@@ -231,7 +231,7 @@ const HIDDEN_PERP_MARKET_INDEXES: ReadonlySet<number> = new Set([
 **Usage:**
 
 ```typescript
-import { HIDDEN_PERP_MARKET_INDEXES } from '@drift/common';
+import { HIDDEN_PERP_MARKET_INDEXES } from '@drift-labs/common';
 
 // Filter visible markets
 const visibleMarkets = allPerpMarkets.filter(
@@ -281,7 +281,7 @@ import {
   NEW_ACCOUNT_BASE_COST, 
   MIN_LEFTOVER_SOL,
   IF_STAKE_ACCOUNT_BASE_RENT 
-} from '@drift/common';
+} from '@drift-labs/common';
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
 // Check if user has enough SOL to create account
@@ -327,7 +327,7 @@ const SACRED_POOL_ID = 4;
 ### Usage
 
 ```typescript
-import { MAIN_POOL_ID, JLP_POOL_ID } from '@drift/common';
+import { MAIN_POOL_ID, JLP_POOL_ID } from '@drift-labs/common';
 
 // Get pool-specific data
 const poolId = MAIN_POOL_ID;
@@ -351,7 +351,7 @@ const EMPTY_AUCTION_PARAMS: AuctionParams = {
 ### Usage
 
 ```typescript
-import { EMPTY_AUCTION_PARAMS } from '@drift/common';
+import { EMPTY_AUCTION_PARAMS } from '@drift-labs/common';
 
 // Initialize order without auction
 const orderParams = {
@@ -389,7 +389,7 @@ const MAX_PREDICTION_PRICE_BIG_NUM = BigNum.from(
 import { 
   MAX_PREDICTION_PRICE_NUM, 
   MAX_PREDICTION_PRICE_BIG_NUM 
-} from '@drift/common';
+} from '@drift-labs/common';
 
 // Validate prediction market price
 if (price > MAX_PREDICTION_PRICE_NUM) {
@@ -489,7 +489,7 @@ import {
   M_SOL,
   JITO_SOL,
   B_SOL
-} from '@drift/common';
+} from '@drift-labs/common';
 
 // Render LST selector
 SUPERSTAKE_ALL_LST.forEach(lst => {

@@ -8,7 +8,7 @@ The `COMMON_MATH` namespace provides utilities for calculating spreads, bid/ask 
 ## Import
 
 ```typescript
-import { COMMON_MATH } from '@drift/common';
+import { COMMON_MATH } from '@drift-labs/common';
 ```
 
 ## Functions
@@ -50,7 +50,7 @@ Calculates the spread (in both quote and percentage), best bid/ask prices, and m
 ### Basic Spread Calculation
 
 ```typescript
-import { COMMON_MATH } from '@drift/common';
+import { COMMON_MATH } from '@drift-labs/common';
 import { BN } from '@drift-labs/sdk';
 
 const l2Orderbook = {
@@ -75,7 +75,7 @@ console.log('Spread (quote):', result.spreadQuote?.toString()); // 100
 ### With Oracle Price
 
 ```typescript
-import { COMMON_MATH } from '@drift/common';
+import { COMMON_MATH } from '@drift-labs/common';
 import { BN } from '@drift-labs/sdk';
 
 const l2Orderbook = {
@@ -97,7 +97,7 @@ console.log('Mark Price:', result.markPrice?.toString()); // 100300
 ### Empty Orderbook
 
 ```typescript
-import { COMMON_MATH } from '@drift/common';
+import { COMMON_MATH } from '@drift-labs/common';
 
 const emptyOrderbook = {
   bids: [],
@@ -119,7 +119,7 @@ console.log(result);
 ### Calculate Spread Percentage
 
 ```typescript
-import { COMMON_MATH } from '@drift/common';
+import { COMMON_MATH } from '@drift-labs/common';
 import { BN, PERCENTAGE_PRECISION } from '@drift-labs/sdk';
 
 const l2Orderbook = {

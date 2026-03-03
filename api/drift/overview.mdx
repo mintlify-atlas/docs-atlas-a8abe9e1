@@ -67,8 +67,8 @@ The integration automatically optimizes data fetching based on:
 ### AuthorityDrift Example
 
 ```typescript
-import { AuthorityDrift } from '@drift/common';
-import { MarketId } from '@drift/common';
+import { AuthorityDrift } from '@drift-labs/common';
+import { MarketId } from '@drift-labs/common';
 
 const client = new AuthorityDrift({
   solanaRpcEndpoint: 'https://api.mainnet-beta.solana.com',
@@ -93,7 +93,7 @@ client.onMarkPricesUpdate((prices) => {
 ### CentralServerDrift Example
 
 ```typescript
-import { CentralServerDrift } from '@drift/common';
+import { CentralServerDrift } from '@drift-labs/common';
 
 const server = new CentralServerDrift({
   solanaRpcEndpoint: 'https://api.mainnet-beta.solana.com',

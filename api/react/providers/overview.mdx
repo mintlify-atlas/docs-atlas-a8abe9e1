@@ -1,0 +1,404 @@
+---
+title: "React Providers"
+description: "Provider components for Drift applications"
+---
+
+# React Providers
+
+Drift Common provides React context providers that set up the necessary infrastructure for Drift applications, including wallet integration, Drift client initialization, and application-wide state management.
+
+## Available Providers
+
+- **DriftProvider** - Main provider that orchestrates all Drift functionality
+- **DriftWalletProvider** - Wallet adapter integration with custom autoconnect logic
+
+---
+
+## DriftProvider
+
+The main provider component that sets up the complete Drift application infrastructure. This provider should wrap your entire application.
+
+### Import
+
+```typescript
+import { DriftProvider } from '@drift/react';
+```
+
+### Props
+
+```typescript
+interface DriftProviderProps {
+  // Wallet configuration
+  disableAutoconnect?: boolean;
+  autoconnectionDelay?: number;
+  wallets?: WalletAdapter[];
+  
+  // Feature toggles
+  disable?: {
+    idlePollingRateSwitcher?: boolean;
+    emulation?: boolean;
+    geoblocking?: boolean;
+    initConnection?: boolean;
+    subscribeSolBalance?: boolean;
+  };
+  
+  // Geoblocking configuration
+  geoBlocking?: {
+    callback?: () => void;
+  };
+  
+  // Responsive breakpoints (required)
+  breakpoints: Breakpoints;
+  
+  // Additional Drift client configuration
+  additionalDriftClientConfig?: Partial<DriftClientConfig>;
+  
+  children: React.ReactNode;
+}
+
+type Breakpoints = {
+  xs: number;
+  sm: number;
+  md: number;
+  lg: number;
+  xl: number;
+};
+```
+
+### Basic Usage
+
+```typescript
+import { DriftProvider, DEFAULT_BREAKPOINTS } from '@drift/react';
+
+function App() {
+  return (
+    <DriftProvider breakpoints={DEFAULT_BREAKPOINTS}>
+      <YourApp />
+    </DriftProvider>
+  );
+}
+```
+
+### Complete Example
+
+```typescript
+import { DriftProvider, DEFAULT_BREAKPOINTS } from '@drift/react';
+import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { useMemo } from 'react';
+
+function App() {
+  const wallets = useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter(),
+    ],
+    []
+  );
+  
+  return (
+    <DriftProvider
+      breakpoints={DEFAULT_BREAKPOINTS}
+      wallets={wallets}
+      disableAutoconnect={false}
+      autoconnectionDelay={2000}
+      disable={{
+        geoblocking: false,
+        emulation: false,
+      }}
+      geoBlocking={{
+        callback: () => {
+          console.log('User is geo-blocked');
+          // Redirect or show message
+        },
+      }}
+      additionalDriftClientConfig={{
+        // Additional SDK configuration
+      }}
+    >
+      <YourApp />
+    </DriftProvider>
+  );
+}
+```
+
+### Custom Breakpoints
+
+```typescript
+const customBreakpoints = {
+  xs: 0,
+  sm: 480,
+  md: 768,
+  lg: 1200,
+  xl: 1600,
+};
+
+function App() {
+  return (
+    <DriftProvider breakpoints={customBreakpoints}>
+      <YourApp />
+    </DriftProvider>
+  );
+}
+```
+
+### Disabling Features
+
+```typescript
+function App() {
+  return (
+    <DriftProvider
+      breakpoints={DEFAULT_BREAKPOINTS}
+      disable={{
+        // Disable automatic polling rate adjustment when idle
+        idlePollingRateSwitcher: true,
+        
+        // Disable emulation mode
+        emulation: true,
+        
+        // Disable geoblocking checks
+        geoblocking: true,
+        
+        // Don't automatically initialize connection
+        initConnection: false,
+        
+        // Don't subscribe to SOL balance updates
+        subscribeSolBalance: true,
+      }}
+    >
+      <YourApp />
+    </DriftProvider>
+  );
+}
+```
+
+### What DriftProvider Does
+
+The DriftProvider sets up several features automatically:
+
+1. **Wallet Integration** - Configures wallet adapters and manages connections
+2. **Drift Client** - Initializes and manages the DriftClient connection
+3. **State Management** - Sets up Zustand stores for application state
+4. **Screen Size Tracking** - Monitors window size based on breakpoints
+5. **SOL Balance** - Subscribes to wallet SOL balance updates
+6. **Idle Detection** - Adjusts polling rates when user is inactive
+7. **Emulation Mode** - Enables transaction simulation mode
+8. **Geoblocking** - Checks user location restrictions
+
+---
+
+## DriftWalletProvider
+
+A wrapper around Solana's WalletProvider with Drift-specific wallet logic, including custom autoconnect behavior and wallet filtering.
+
+### Import
+
+```typescript
+import DriftWalletProvider from '@drift/react';
+```
+
+### Props
+
+```typescript
+interface DriftWalletProviderProps {
+  wallets?: WalletAdapter[];
+  autoConnect?: boolean;  // Default: true
+  disableAutoconnect?: boolean;
+  autoconnectionDelay?: number;  // Default: 4000ms
+  children: React.ReactNode;
+}
+```
+
+### Basic Usage
+
+```typescript
+import DriftWalletProvider from '@drift/react';
+import { PhantomWalletAdapter } from '@solana/wallet-adapter-wallets';
+
+function App() {
+  const wallets = [new PhantomWalletAdapter()];
+  
+  return (
+    <DriftWalletProvider wallets={wallets}>
+      <YourApp />
+    </DriftWalletProvider>
+  );
+}
+```
+
+### Features
+
+#### Custom Autoconnect Logic
+
+The DriftWalletProvider implements custom autoconnect logic that:
+
+- Waits for a configurable delay before attempting to connect
+- Only attempts to connect if the wallet was previously connected
+- Stores the preferred wallet in localStorage
+- Handles connection and disconnection events
+
+```typescript
+<DriftWalletProvider
+  wallets={wallets}
+  disableAutoconnect={false}
+  autoconnectionDelay={2000}  // Wait 2 seconds before autoconnecting
+>
+  <YourApp />
+</DriftWalletProvider>
+```
+
+#### Mobile Wallet Adapter Filtering
+
+On devices where the Mobile Wallet Adapter is available, the provider automatically filters out other wallets to avoid confusion and bugs:
+
+```typescript
+// If Mobile Wallet Adapter is detected and ready,
+// only that adapter will be shown to users
+```
+
+#### Wallet State Persistence
+
+The provider automatically manages wallet state in localStorage:
+
+```typescript
+// On connection
+localStorage.setItem('walletName', 'Phantom');
+localStorage.setItem('hasConnectedWalletBefore', 'true');
+
+// On disconnection
+localStorage.removeItem('walletName');
+localStorage.removeItem('hasConnectedWalletBefore');
+```
+
+### Advanced Usage
+
+#### Accessing Wallet Context
+
+```typescript
+import { useWallet } from '@drift/react';
+
+function WalletInfo() {
+  const { publicKey, connected, connect, disconnect } = useWallet();
+  
+  return (
+    <div>
+      {connected ? (
+        <>
+          <p>Connected: {publicKey?.toBase58()}</p>
+          <button onClick={disconnect}>Disconnect</button>
+        </>
+      ) : (
+        <button onClick={connect}>Connect Wallet</button>
+      )}
+    </div>
+  );
+}
+```
+
+#### Using with DriftProvider
+
+Typically, you don't need to use DriftWalletProvider directly as it's included in DriftProvider:
+
+```typescript
+// This is handled automatically by DriftProvider
+<DriftProvider wallets={wallets} breakpoints={breakpoints}>
+  <YourApp />
+</DriftProvider>
+
+// Under the hood, DriftProvider uses DriftWalletProvider
+```
+
+---
+
+## Best Practices
+
+### Provider Ordering
+
+When using DriftProvider, it handles the correct provider ordering automatically. If you're using providers separately, ensure proper nesting:
+
+```typescript
+<DriftWalletProvider wallets={wallets}>
+  <DriftProviderInner breakpoints={breakpoints}>
+    <YourApp />
+  </DriftProviderInner>
+</DriftWalletProvider>
+```
+
+### Wallet Memoization
+
+Memoize wallet adapters to prevent unnecessary re-renders:
+
+```typescript
+import { useMemo } from 'react';
+
+function App() {
+  const wallets = useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+      new SolflareWalletAdapter(),
+      new BackpackWalletAdapter(),
+    ],
+    []
+  );
+  
+  return (
+    <DriftProvider wallets={wallets} breakpoints={DEFAULT_BREAKPOINTS}>
+      <YourApp />
+    </DriftProvider>
+  );
+}
+```
+
+### Environment Configuration
+
+Initialize the Drift store before rendering your app:
+
+```typescript
+import { initializeDriftStore } from '@drift/react';
+import { DriftEnv } from '@drift-labs/sdk';
+
+// Initialize before ReactDOM.render
+initializeDriftStore({
+  driftEnv: 'mainnet-beta' as DriftEnv,
+  basePollingRateMs: 1000,
+  priorityFeePollingMultiplier: 1,
+  rpcOverride: process.env.REACT_APP_RPC_URL,
+  isDev: process.env.NODE_ENV === 'development',
+  subscribeToAccounts: true,
+  txSenderRetryInterval: 2000,
+});
+
+ReactDOM.render(
+  <DriftProvider breakpoints={DEFAULT_BREAKPOINTS}>
+    <App />
+  </DriftProvider>,
+  document.getElementById('root')
+);
+```
+
+### Error Boundaries
+
+Wrap your app in error boundaries to handle provider initialization errors:
+
+```typescript
+import { ErrorBoundary } from 'react-error-boundary';
+
+function App() {
+  return (
+    <ErrorBoundary
+      fallback={<div>Failed to initialize Drift providers</div>}
+      onError={(error) => console.error('Provider error:', error)}
+    >
+      <DriftProvider breakpoints={DEFAULT_BREAKPOINTS}>
+        <YourApp />
+      </DriftProvider>
+    </ErrorBoundary>
+  );
+}
+```
+
+## Related
+
+- [React Stores](/api/react/stores/overview) - State management stores used by providers
+- [Wallet Hook](/api/react/hooks/wallet) - Hook for accessing wallet state
+- [Drift Client Hook](/api/react/hooks/drift-client) - Hook for accessing Drift client
+- [Setup Guide](/guides/react/setup) - Complete setup guide for React package
