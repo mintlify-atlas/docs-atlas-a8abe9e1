@@ -1,0 +1,181 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Drift Common",
+  "projectDescription": "A monorepo of shared utilities, React components, and TypeScript libraries for building applications on Drift Protocol, a decentralized perpetuals exchange on Solana.",
+  "theme": "palm",
+  "primaryColor": "#9945FF",
+  "lightColor": "#14F195",
+  "darkColor": "#9945FF",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Packages",
+            "pages": [
+              "packages/overview",
+              "packages/common-ts",
+              "packages/react",
+              "packages/icons"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/drift-client",
+              "concepts/configuration",
+              "concepts/environment"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Common Utilities",
+            "pages": [
+              "api/utils/overview",
+              "api/utils/math",
+              "api/utils/logger",
+              "api/utils/token",
+              "api/utils/priority-fees",
+              "api/utils/websocket"
+            ]
+          },
+          {
+            "group": "Clients",
+            "pages": [
+              "api/clients/overview",
+              "api/clients/candle-client",
+              "api/clients/market-data-feed",
+              "api/clients/dlob-websocket",
+              "api/clients/swift-client"
+            ]
+          },
+          {
+            "group": "Drift Protocol",
+            "pages": [
+              "api/drift/overview",
+              "api/drift/authority-drift",
+              "api/drift/central-server-drift",
+              "api/drift/subscription-manager",
+              "api/drift/orderbook"
+            ]
+          },
+          {
+            "group": "React Components",
+            "pages": [
+              "api/react/components/overview",
+              "api/react/components/tables",
+              "api/react/components/charts",
+              "api/react/components/loaders"
+            ]
+          },
+          {
+            "group": "React Hooks",
+            "pages": [
+              "api/react/hooks/overview",
+              "api/react/hooks/wallet",
+              "api/react/hooks/drift-client",
+              "api/react/hooks/priority-fees",
+              "api/react/hooks/oracle-price"
+            ]
+          },
+          {
+            "group": "Types",
+            "pages": [
+              "api/types/serializable-types",
+              "api/types/config",
+              "api/types/constants"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Common Package",
+            "pages": [
+              "guides/common/setup",
+              "guides/common/clients",
+              "guides/common/websockets",
+              "guides/common/utilities"
+            ]
+          },
+          {
+            "group": "React Package",
+            "pages": [
+              "guides/react/setup",
+              "guides/react/wallet-integration",
+              "guides/react/drift-provider",
+              "guides/react/using-hooks",
+              "guides/react/custom-components"
+            ]
+          },
+          {
+            "group": "Icons Package",
+            "pages": [
+              "guides/icons/setup",
+              "guides/icons/usage"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "guides/advanced/environment-configuration",
+              "guides/advanced/error-handling",
+              "guides/advanced/performance-optimization",
+              "guides/advanced/testing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Comprehensive utility functions for Drift Protocol integration",
+    "React components and hooks for building Solana dApps",
+    "WebSocket clients for real-time market data and orderbook updates",
+    "Type-safe serializable data structures for state management",
+    "Priority fee calculation and RPC management utilities",
+    "Drift Protocol-specific clients and subscription managers",
+    "Icon components generated from Figma designs",
+    "Browser and Node.js compatible builds"
+  ],
+  "publicApiSurface": [
+    "@drift-labs/common - Main utilities package",
+    "Config - Configuration management",
+    "Initialize() - SDK initialization",
+    "EnvironmentConstants - RPC endpoints and server URLs",
+    "CandleClient - Candlestick data client",
+    "MarketDataFeed - Market data streaming",
+    "DlobWebsocketClient - DLOB orderbook websocket",
+    "SwiftClient - Swift server integration",
+    "MultiplexWebSocket - WebSocket multiplexing",
+    "NumLib - Big number utilities",
+    "priorityFees - Priority fee calculation",
+    "WalletConnectionState - Wallet state management",
+    "@drift-labs/react - React components package",
+    "useCommonDriftActions - Drift action hooks",
+    "useDriftClientIsReady - Client ready state",
+    "useSolBalance - SOL balance tracking",
+    "useRpcLatencies - RPC performance monitoring",
+    "usePriorityFees - Priority fee hooks",
+    "useOraclePrice - Oracle price streaming",
+    "useWalletContext - Wallet adapter integration",
+    "@drift-labs/icons - Icon components",
+    "DriftErrors - Drift protocol error codes",
+    "JupV4Errors, JupV6Errors - Jupiter error codes"
+  ]
+}
