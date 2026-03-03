@@ -1,0 +1,537 @@
+---
+title: CentralServerDrift
+description: Lightweight Drift client for API servers with on-demand user data fetching
+---
+
+## Overview
+
+The `CentralServerDrift` client is optimized for API servers that need to generate transactions for multiple users on-demand. Unlike `AuthorityDrift`, it maintains continuous subscriptions only to market data while fetching user data as needed.
+
+## Constructor
+
+```typescript
+const server = new CentralServerDrift(config);
+```
+
+### Configuration
+
+```typescript
+interface CentralServerDriftConfig {
+  solanaRpcEndpoint: string;
+  driftEnv: DriftEnv;
+  supportedPerpMarkets: number[];
+  supportedSpotMarkets: number[];
+  additionalDriftClientConfig?: Partial<Omit<DriftClientConfig, 'env'>>;
+  priorityFeeSubscriberConfig?: Partial<PriorityFeeSubscriberConfig>;
+}
+```
+
+#### Parameters
+
+- **solanaRpcEndpoint**: Solana RPC endpoint URL
+- **driftEnv**: Environment (`'mainnet-beta'` or `'devnet'`)
+- **supportedPerpMarkets**: Perp market indexes to support (e.g., `[0, 1, 2]` for SOL, BTC, ETH)
+- **supportedSpotMarkets**: Spot market indexes to support (e.g., `[0, 1]` for USDC, SOL)
+- **additionalDriftClientConfig**: Additional DriftClient configuration
+- **priorityFeeSubscriberConfig**: Priority fee configuration
+
+### Example
+
+```typescript
+const server = new CentralServerDrift({
+  solanaRpcEndpoint: 'https://api.mainnet-beta.solana.com',
+  driftEnv: 'mainnet-beta',
+  supportedPerpMarkets: [0, 1, 2], // SOL, BTC, ETH
+  supportedSpotMarkets: [0, 1],    // USDC, SOL
+});
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:96`
+
+## Lifecycle Methods
+
+### subscribe()
+
+Subscribes to market accounts and priority fee updates.
+
+```typescript
+await server.subscribe();
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:199`
+
+### unsubscribe()
+
+Unsubscribes from all services.
+
+```typescript
+await server.unsubscribe();
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:204`
+
+## User Data Access
+
+### getUser()
+
+Fetches user account data on-demand.
+
+```typescript
+const user = await server.getUser(userAccountPublicKey);
+
+// Access user data
+const positions = user.getActivePerpPositions();
+const equity = user.getTotalCollateral();
+```
+
+**Returns:** `User` object with full account data
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:307`
+
+## Transaction Generation
+
+### getCreateAndDepositTxn()
+
+Generates a transaction to create a user account and deposit initial collateral.
+
+```typescript
+const result = await server.getCreateAndDepositTxn(
+  authorityPublicKey,
+  new BN(100_000000), // 100 USDC
+  0, // USDC spot market
+  {
+    accountName: 'Main Account',
+    referrerName: 'my-referrer',
+    poolId: 0,
+    customMaxMarginRatio: 2000, // 20x max leverage
+  }
+);
+
+console.log('User account:', result.userAccountPublicKey);
+console.log('Sub-account ID:', result.subAccountId);
+
+// Send transaction
+const signedTx = await wallet.signTransaction(result.transaction);
+await server.sendSignedTransaction(signedTx);
+```
+
+#### External Wallet Support
+
+Deposit from a different wallet than the authority:
+
+```typescript
+const result = await server.getCreateAndDepositTxn(
+  authorityPublicKey,
+  depositAmount,
+  spotMarketIndex,
+  {
+    externalWallet: depositWalletPublicKey,
+  }
+);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:348`
+
+### getDepositTxn()
+
+Generates a deposit transaction.
+
+```typescript
+const depositTxn = await server.getDepositTxn(
+  userAccountPublicKey,
+  new BN(50_000000), // 50 USDC
+  0, // USDC market
+  {
+    externalWallet: depositWalletPublicKey, // Optional
+  }
+);
+
+const signedTx = await wallet.signTransaction(depositTxn);
+await server.sendSignedTransaction(signedTx);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:432`
+
+### getWithdrawTxn()
+
+Generates a withdrawal transaction.
+
+```typescript
+const withdrawTxn = await server.getWithdrawTxn(
+  userAccountPublicKey,
+  new BN(25_000000), // 25 USDC
+  0, // USDC market
+  {
+    isBorrow: false,
+    isMax: false,
+  }
+);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:488`
+
+### getDeleteUserTxn()
+
+Generates a transaction to delete a user account.
+
+```typescript
+const deleteTxn = await server.getDeleteUserTxn(userAccountPublicKey);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:473`
+
+## Perpetual Orders
+
+### getOpenPerpMarketOrderTxn()
+
+Generates a perpetual market order transaction.
+
+```typescript
+// Standard market order
+const marketOrderTxn = await server.getOpenPerpMarketOrderTxn({
+  userAccountPublicKey,
+  useSwift: false,
+  marketIndex: 0, // SOL-PERP
+  direction: PositionDirection.LONG,
+  amount: BigNum.from(10, 9), // 10 SOL
+  assetType: 'base',
+  positionMaxLeverage: 5,
+  reduceOnly: false,
+});
+
+// Swift market order (instant execution)
+await server.getOpenPerpMarketOrderTxn({
+  userAccountPublicKey,
+  useSwift: true,
+  swiftOptions: {
+    slippageBps: 50, // 0.5%
+  },
+  marketIndex: 0,
+  direction: PositionDirection.LONG,
+  amount: BigNum.from(10, 9),
+  assetType: 'base',
+  positionMaxLeverage: 5,
+});
+```
+
+**Parameters:**
+- **useSwift**: Whether to use Swift instant execution
+- **placeAndTake**: Whether to place and immediately take order (only when `useSwift: false`)
+- **swiftOptions**: Swift-specific options (when `useSwift: true`)
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:569`
+
+### getOpenPerpNonMarketOrderTxn()
+
+Generates a perpetual limit or trigger order transaction.
+
+```typescript
+// Limit order
+const limitOrderTxn = await server.getOpenPerpNonMarketOrderTxn({
+  userAccountPublicKey,
+  useSwift: false,
+  marketIndex: 0,
+  direction: PositionDirection.LONG,
+  amount: BigNum.from(10, 9),
+  assetType: 'base',
+  orderType: 'limit',
+  limitPrice: BigNum.from(100, 6), // $100
+  positionMaxLeverage: 5,
+});
+
+// Stop loss order
+const stopLossTxn = await server.getOpenPerpNonMarketOrderTxn({
+  userAccountPublicKey,
+  useSwift: false,
+  marketIndex: 0,
+  direction: PositionDirection.SHORT,
+  amount: BigNum.from(10, 9),
+  assetType: 'base',
+  orderType: 'stopLoss',
+  triggerPrice: BigNum.from(95, 6), // $95
+  positionMaxLeverage: 5,
+});
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:625`
+
+### getEditOrderTxn()
+
+Generates a transaction to edit an existing order.
+
+```typescript
+const editTxn = await server.getEditOrderTxn(
+  userAccountPublicKey,
+  orderId,
+  {
+    newLimitPrice: new BN(105_000000), // $105
+    newBaseAmount: new BN(15_000000000), // 15 SOL
+    reduceOnly: true,
+  }
+);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:676`
+
+### getCancelOrdersTxn()
+
+Generates a transaction to cancel specific orders.
+
+```typescript
+const cancelTxn = await server.getCancelOrdersTxn(
+  userAccountPublicKey,
+  [1, 2, 3] // Order IDs
+);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:715`
+
+### getCancelAllOrdersTxn()
+
+Generates a transaction to cancel all orders.
+
+```typescript
+// Cancel all orders
+const cancelAllTxn = await server.getCancelAllOrdersTxn(
+  userAccountPublicKey
+);
+
+// Cancel all perp orders for specific market
+const cancelPerpTxn = await server.getCancelAllOrdersTxn(
+  userAccountPublicKey,
+  MarketType.PERP,
+  0 // SOL-PERP
+);
+
+// Cancel all long orders
+const cancelLongsTxn = await server.getCancelAllOrdersTxn(
+  userAccountPublicKey,
+  undefined,
+  undefined,
+  PositionDirection.LONG
+);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:736`
+
+## Position Management
+
+### getSettleFundingTxn()
+
+Generates a transaction to settle funding payments.
+
+```typescript
+const settleFundingTxn = await server.getSettleFundingTxn(
+  userAccountPublicKey
+);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:526`
+
+### getSettlePnlTxn()
+
+Generates a transaction to settle profit and loss.
+
+```typescript
+const settlePnlTxn = await server.getSettlePnlTxn(
+  userAccountPublicKey,
+  [0, 1] // Market indexes to settle
+);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:546`
+
+## Swaps
+
+### getSwapTxn()
+
+Generates a swap transaction using Jupiter.
+
+```typescript
+const swapTxn = await server.getSwapTxn(
+  userAccountPublicKey,
+  1, // From SOL
+  0, // To USDC
+  new BN(1_000000000), // 1 SOL
+  {
+    slippageBps: 50, // 0.5%
+    swapMode: 'ExactIn',
+    onlyDirectRoutes: false,
+  }
+);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:762`
+
+## Priority Fees
+
+### getTxParams()
+
+Gets transaction parameters with dynamic priority fees.
+
+```typescript
+const txParams = server.getTxParams({
+  computeUnits: 200_000,
+});
+
+console.log('Priority fee:', txParams.computeUnitsPrice);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:330`
+
+## Sending Transactions
+
+### sendSignedTransaction()
+
+Sends a signed transaction to the network.
+
+```typescript
+const signature = await server.sendSignedTransaction(signedTx);
+console.log('Transaction signature:', signature);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:833`
+
+## Market Data Access
+
+### markets
+
+Access market configuration and data.
+
+```typescript
+// Get all perp markets
+const perpMarkets = server.markets.getAllPerpMarkets();
+
+// Get specific market
+const solPerp = server.markets.getPerpMarketAccount(0);
+console.log('Market:', solPerp.name);
+console.log('Oracle:', solPerp.amm.oracle);
+```
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:88`
+
+## Example: API Server Implementation
+
+```typescript
+import { CentralServerDrift } from '@drift/common';
+import express from 'express';
+
+// Initialize server
+const driftServer = new CentralServerDrift({
+  solanaRpcEndpoint: process.env.RPC_URL,
+  driftEnv: 'mainnet-beta',
+  supportedPerpMarkets: [0, 1, 2, 3], // SOL, BTC, ETH, APT
+  supportedSpotMarkets: [0, 1],        // USDC, SOL
+});
+
+await driftServer.subscribe();
+
+const app = express();
+
+// Endpoint: Get user data
+app.get('/user/:pubkey', async (req, res) => {
+  try {
+    const pubkey = new PublicKey(req.params.pubkey);
+    const user = await driftServer.getUser(pubkey);
+    
+    res.json({
+      positions: user.getActivePerpPositions(),
+      equity: user.getTotalCollateral().toString(),
+      leverage: user.getLeverage().toString(),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint: Create deposit transaction
+app.post('/deposit', async (req, res) => {
+  try {
+    const { userPubkey, amount, marketIndex } = req.body;
+    
+    const txn = await driftServer.getDepositTxn(
+      new PublicKey(userPubkey),
+      new BN(amount),
+      marketIndex
+    );
+    
+    // Serialize transaction for client to sign
+    const serialized = txn.serialize({
+      requireAllSignatures: false,
+      verifySignatures: false,
+    });
+    
+    res.json({
+      transaction: Buffer.from(serialized).toString('base64'),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint: Open perp order
+app.post('/order/perp', async (req, res) => {
+  try {
+    const { userPubkey, marketIndex, direction, amount } = req.body;
+    
+    const txn = await driftServer.getOpenPerpMarketOrderTxn({
+      userAccountPublicKey: new PublicKey(userPubkey),
+      useSwift: false,
+      marketIndex,
+      direction,
+      amount: BigNum.from(amount, 9),
+      assetType: 'base',
+      positionMaxLeverage: 5,
+    });
+    
+    const serialized = txn.serialize({
+      requireAllSignatures: false,
+      verifySignatures: false,
+    });
+    
+    res.json({
+      transaction: Buffer.from(serialized).toString('base64'),
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.listen(3000, () => {
+  console.log('Drift API server running on port 3000');
+});
+
+// Cleanup on shutdown
+process.on('SIGINT', async () => {
+  await driftServer.unsubscribe();
+  process.exit(0);
+});
+```
+
+## Architecture Notes
+
+### Context Wrapper Pattern
+
+Most transaction generation methods use an internal `driftClientContextWrapper` that:
+
+1. Creates a one-shot User subscription
+2. Temporarily updates DriftClient state
+3. Generates the transaction
+4. Cleans up and restores original state
+
+This ensures proper account context for transaction generation without maintaining persistent user subscriptions.
+
+Source: `src/drift/Drift/clients/CentralServerDrift/index.ts:221`
+
+### Memory Efficiency
+
+Unlike `AuthorityDrift`, this client:
+- Does not maintain user account subscriptions
+- Does not cache user data
+- Does not subscribe to orderbook websockets
+- Uses minimal memory per request
+
+## See Also
+
+- [AuthorityDrift](/api/drift/authority-drift) - Full trading client
+- [Drift Protocol Overview](/api/drift/overview) - Integration overview

@@ -1,0 +1,157 @@
+---
+title: "Introduction to Drift Common"
+description: "A comprehensive TypeScript monorepo providing common utilities, React components, and UI building blocks for the Drift Protocol ecosystem"
+---
+
+<Note>
+Drift Common is a production-ready monorepo that powers Drift Protocol applications with shared utilities, React components, and design system elements.
+</Note>
+
+## What is Drift Common?
+
+Drift Common is a TypeScript monorepo that provides essential building blocks for developing applications in the Drift Protocol ecosystem. It consolidates common functionality, React components, and icon assets into three specialized packages that work seamlessly together.
+
+The monorepo consists of three packages:
+
+<CardGroup cols={3}>
+  <Card title="@drift-labs/common" icon="code" href="#drift-labscommon">
+    Core utilities for Drift Protocol integration, including client libraries, math utilities, and common types
+  </Card>
+  <Card title="@drift-labs/react" icon="react" href="#drift-labsreact">
+    React hooks, components, and providers for building Drift-powered applications
+  </Card>
+  <Card title="@drift-labs/icons" icon="palette" href="#drift-labsicons">
+    React icon components generated from Figma designs
+  </Card>
+</CardGroup>
+
+## Quick Links
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Get started by installing the packages you need
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Build your first Drift application in minutes
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Production-Ready Utilities
+Comprehensive set of utilities for working with Drift Protocol, including math operations, token handling, WebSocket clients, and RPC management.
+
+### React Integration
+Purpose-built React hooks and components that simplify wallet connection, Drift client management, and state synchronization.
+
+### Type Safety
+Full TypeScript support with comprehensive type definitions for all packages, ensuring type-safe development.
+
+### WebSocket Clients
+Battle-tested WebSocket clients for real-time data feeds including DLOB (Decentralized Limit Order Book), market data, and candle data.
+
+### Solana Wallet Support
+Seamless integration with Solana wallet adapters, including custom autoconnect logic and mobile wallet support.
+
+### State Management
+Built-in state management using Zustand and Immer for efficient React state updates.
+
+### UI Components
+Ready-to-use UI components including charts, loaders, selects, tables, tags, and text components.
+
+### Icon System
+Extensive icon library with React components automatically generated from Figma designs.
+
+## Package Overview
+
+### @drift-labs/common
+
+The core package providing fundamental utilities and client libraries for Drift Protocol integration.
+
+**Key Exports:**
+- `EnvironmentConstants` - RPC endpoints and server URLs for different environments
+- `Initialize` - SDK configuration and market initialization
+- Client libraries for DLOB, market data, candles, and Swift
+- Math utilities for orderbook calculations
+- Token utilities for SPL token operations
+- WebSocket multiplexing and connection management
+- Circular buffers and data structures
+
+**Dependencies:**
+- `@drift-labs/sdk` ^2.158.0-beta.0
+- `@solana/web3.js` 1.98.0
+- `rxjs` 7.8.2
+- `immer` 10.0.3
+
+### @drift-labs/react
+
+React-specific components, hooks, and providers for building Drift applications.
+
+**Key Exports:**
+- `DriftProvider` - Main provider for Drift functionality
+- `DriftWalletProvider` - Wallet connection and state management
+- `useWalletContext` - Access wallet state
+- `useCommonDriftActions` - Common Drift actions
+- `useDriftClientIsReady` - Check Drift client readiness
+- `useSolBalance` - Monitor SOL balance
+- Chart components and hooks
+- UI components (Loaders, Select, Tables, Tags, Text)
+
+**Dependencies:**
+- `react` 19.0.3
+- `@drift-labs/sdk` ^2.158.0-beta.0
+- `@solana/wallet-adapter-react` 0.15.35
+- `zustand` 4.3.8
+- `immer` 10.0.2
+
+### @drift-labs/icons
+
+React icon components with automatic Figma-to-React generation.
+
+**Key Features:**
+- Automatically generated from Figma designs
+- TypeScript support
+- Tree-shakeable exports
+- Consistent sizing and styling
+
+## Architecture
+
+Drift Common follows a monorepo structure with clear separation of concerns:
+
+```
+drift-common/
+├── common-ts/          # @drift-labs/common
+│   ├── src/
+│   │   ├── clients/    # WebSocket and HTTP clients
+│   │   ├── utils/      # Utility functions
+│   │   ├── types/      # TypeScript type definitions
+│   │   └── constants/  # Environment and market constants
+│   └── package.json
+├── react/              # @drift-labs/react
+│   ├── src/
+│   │   ├── components/ # UI components
+│   │   ├── hooks/      # React hooks
+│   │   ├── providers/  # Context providers
+│   │   └── stores/     # State management
+│   └── package.json
+└── icons/              # @drift-labs/icons
+    ├── src/
+    │   └── icons/      # Generated icon components
+    └── package.json
+```
+
+## Engine Requirements
+
+- **Node.js**: ^24.x.x (for @drift-labs/common)
+- **React**: 19.0.3 (for @drift-labs/react)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Install Packages" icon="download" href="/installation">
+    Install the packages you need for your project
+  </Card>
+  <Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+    Follow our quick start guide to build your first app
+  </Card>
+</CardGroup>

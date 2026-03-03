@@ -1,0 +1,78 @@
+---
+title: "React Hooks Overview"
+description: "Collection of React hooks for integrating Drift Protocol functionality into your application"
+---
+
+The Drift Common React library provides a comprehensive set of hooks for building applications on top of the Drift Protocol. These hooks handle wallet connections, client management, priority fees, oracle prices, and more.
+
+## Categories
+
+### Wallet Hooks
+
+Hooks for managing wallet connections and SOL balances:
+
+- `useWalletContext` - Access the currently connected wallet context
+- `useSyncWalletToStore` - Sync wallet state to the application store
+- `useSolBalance` - Track and update SOL balance
+
+See [Wallet Hooks](/api/react/hooks/wallet) for detailed documentation.
+
+### Drift Client Hooks
+
+Hooks for interacting with the Drift client:
+
+- `useDriftClientIsReady` - Check if the Drift client is ready
+- `useCommonDriftActions` - Access Drift client actions
+
+See [Drift Client Hooks](/api/react/hooks/drift-client) for detailed documentation.
+
+### Priority Fee Hooks
+
+Hooks for managing transaction priority fees:
+
+- `usePriorityFeeSubscriber` - Subscribe to priority fee updates
+- `usePriorityFeeUserSettings` - Manage user priority fee preferences
+- `usePriorityFeesPollingRate` - Get the current polling rate for priority fees
+
+See [Priority Fee Hooks](/api/react/hooks/priority-fees) for detailed documentation.
+
+### Oracle Price Hooks
+
+Hooks for tracking oracle price data:
+
+- `useSyncOraclePriceStore` - Sync oracle prices to the store
+
+See [Oracle Price Hooks](/api/react/hooks/oracle-price) for detailed documentation.
+
+## Installation
+
+These hooks are part of the `@drift/react` package:
+
+```bash
+npm install @drift/react
+```
+
+## Basic Usage
+
+Most hooks work in conjunction with the Drift Common store:
+
+```tsx
+import { useWalletContext, useDriftClientIsReady } from '@drift/react';
+
+function MyComponent() {
+  const walletContext = useWalletContext();
+  const isReady = useDriftClientIsReady();
+
+  if (!isReady) {
+    return <div>Loading Drift client...</div>;
+  }
+
+  return <div>Wallet: {walletContext?.publicKey?.toString()}</div>;
+}
+```
+
+## Source Code
+
+All hooks are located in the `hooks/` directory of the source code:
+
+`source/react/src/hooks/`

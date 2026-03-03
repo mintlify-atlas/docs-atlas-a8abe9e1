@@ -1,0 +1,507 @@
+---
+title: 'DlobWebsocketClient'
+description: 'Real-time orderbook data via websocket with reactive streams'
+---
+
+## Overview
+
+The `DlobWebsocketClient` provides a reactive interface for streaming real-time Level 2 (L2) orderbook data from Drift's DLOB (Decentralized Limit Order Book) server via websocket.
+
+## Key Features
+
+- **Reactive Streams**: RxJS-based observable streams for orderbook data
+- **Multiple Markets**: Subscribe to multiple markets simultaneously
+- **Grouping Support**: Optional price grouping for aggregated orderbook views
+- **Slot Filtering**: Automatic filtering of out-of-order or stale data
+- **Tab Return Handling**: Prevents "speed run" through queued messages after tab becomes active
+- **Automatic Deserialization**: Raw orderbook data automatically deserialized
+- **Subscription Management**: Declarative subscription management with automatic cleanup
+
+## Constructor
+
+```typescript
+new DlobWebsocketClient(config: DlobWebsocketClientConfig)
+```
+
+### Parameters
+
+<ParamField path="config" type="DlobWebsocketClientConfig" required>
+  Configuration object
+  
+  <Expandable title="DlobWebsocketClientConfig properties">
+    <ParamField path="websocketUrl" type="string" required>
+      DLOB server websocket URL (e.g., 'wss://dlob.drift.trade/ws')
+    </ParamField>
+    
+    <ParamField path="enableIndicativeOrderbook" type="boolean">
+      Enable indicative orderbook channel (default: false)
+    </ParamField>
+    
+    <ParamField path="resultSlotIncrementer" type="ResultSlotIncrementer">
+      Custom slot tracker (optional, created automatically if not provided)
+    </ParamField>
+    
+    <ParamField path="onFallback" type="(marketId: MarketId) => void">
+      Callback when websocket connection fails for a market
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+### Example
+
+```typescript
+import { DlobWebsocketClient } from '@drift-labs/common';
+
+const dlobClient = new DlobWebsocketClient({
+  websocketUrl: 'wss://dlob.drift.trade/ws',
+  enableIndicativeOrderbook: false,
+  onFallback: (marketId) => {
+    console.error(`Websocket failed for ${marketId.key}, falling back to polling`);
+    // Implement fallback logic here
+  }
+});
+```
+
+## Methods
+
+### subscribeToMarkets
+
+Subscribe to orderbook data for one or more markets.
+
+```typescript
+subscribeToMarkets(
+  markets: {
+    marketId: MarketId;
+    grouping?: OrderbookGrouping;
+  }[]
+): void
+```
+
+#### Parameters
+
+<ParamField path="markets" type="Array" required>
+  Array of market subscription configurations
+  
+  <Expandable title="Market config properties">
+    <ParamField path="marketId" type="MarketId" required>
+      Market identifier (perp or spot)
+    </ParamField>
+    
+    <ParamField path="grouping" type="OrderbookGrouping">
+      Optional price grouping level (e.g., 0.01, 0.1, 1)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<Note>
+  Calling this method replaces all existing subscriptions. To add markets incrementally, include all desired markets in each call.
+</Note>
+
+#### Example
+
+```typescript
+import { MarketId, OrderbookGrouping } from '@drift-labs/common';
+
+// Subscribe to multiple markets with different groupings
+dlobClient.subscribeToMarkets([
+  {
+    marketId: MarketId.createPerpMarketId(0), // SOL-PERP
+    grouping: 0.01 // Group by $0.01
+  },
+  {
+    marketId: MarketId.createPerpMarketId(1), // BTC-PERP  
+    grouping: 1 // Group by $1
+  },
+  {
+    marketId: MarketId.createSpotMarketId(0), // USDC spot
+    // No grouping - raw orderbook
+  }
+]);
+```
+
+### getMarketDataStream
+
+Get an observable stream of processed orderbook data for specific markets.
+
+```typescript
+getMarketDataStream(marketIds: MarketId[]): Observable<ProcessedMarketData>
+```
+
+#### Parameters
+
+<ParamField path="marketIds" type="MarketId[]" required>
+  Array of market IDs to include in the stream
+</ParamField>
+
+#### Returns
+
+RxJS Observable that emits `ProcessedMarketData` objects.
+
+<Expandable title="ProcessedMarketData structure">
+  ```typescript
+  interface ProcessedMarketData {
+    marketId: MarketId;
+    rawData: RawL2Output;
+    deserializedData: {
+      bids: Array<{ price: number; size: number }>;
+      asks: Array<{ price: number; size: number }>;
+    };
+    slot: number;
+  }
+  ```
+</Expandable>
+
+#### Example
+
+```typescript
+import { MarketId } from '@drift-labs/common';
+
+const solPerpId = MarketId.createPerpMarketId(0);
+const btcPerpId = MarketId.createPerpMarketId(1);
+
+// Subscribe to markets
+dlobClient.subscribeToMarkets([
+  { marketId: solPerpId },
+  { marketId: btcPerpId }
+]);
+
+// Get data stream
+const dataStream = dlobClient.getMarketDataStream([solPerpId, btcPerpId]);
+
+const subscription = dataStream.subscribe({
+  next: (data) => {
+    console.log(`Market: ${data.marketId.key}, Slot: ${data.slot}`);
+    console.log('Best bid:', data.deserializedData.bids[0]);
+    console.log('Best ask:', data.deserializedData.asks[0]);
+  },
+  error: (err) => console.error('Stream error:', err),
+  complete: () => console.log('Stream completed')
+});
+
+// Later: cleanup
+subscription.unsubscribe();
+```
+
+### unsubscribeAll
+
+Unsubscribe from all markets.
+
+```typescript
+unsubscribeAll(): void
+```
+
+#### Example
+
+```typescript
+dlobClient.unsubscribeAll();
+```
+
+### handleTabReturn
+
+Handle tab return to prevent processing backlog of queued messages.
+
+```typescript
+handleTabReturn(): void
+```
+
+<Info>
+  Call this method when the browser tab becomes active again. It prevents the "speed run" effect where hundreds of queued messages are processed rapidly, potentially causing UI freezes.
+</Info>
+
+#### Example
+
+```typescript
+// Browser environment
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    dlobClient.handleTabReturn();
+  }
+});
+```
+
+### resetSlotTracking
+
+Reset slot tracking for all active subscriptions.
+
+```typescript
+resetSlotTracking(): void
+```
+
+<Info>
+  Call this after reconnection events to ensure clean slot tracking state.
+</Info>
+
+#### Example
+
+```typescript
+// After reconnection
+connection.on('reconnect', () => {
+  dlobClient.resetSlotTracking();
+});
+```
+
+### destroy
+
+Destroy the client and clean up all resources.
+
+```typescript
+destroy(): void
+```
+
+<Warning>
+  Always call `destroy()` when done with the client to prevent memory leaks.
+</Warning>
+
+#### Example
+
+```typescript
+// React component cleanup
+useEffect(() => {
+  const dlobClient = new DlobWebsocketClient(config);
+  
+  return () => {
+    dlobClient.destroy();
+  };
+}, []);
+```
+
+## Types
+
+### OrderbookChannelTypes
+
+```typescript
+type OrderbookChannelTypes = 'orderbook' | 'orderbook_indicative';
+```
+
+### MarketSubscription
+
+```typescript
+interface MarketSubscription {
+  marketId: MarketId;
+  channel: OrderbookChannelTypes;
+  grouping?: OrderbookGrouping;
+}
+```
+
+### OrderbookGrouping
+
+```typescript
+type OrderbookGrouping = number; // e.g., 0.01, 0.1, 1, 10
+```
+
+## Advanced Usage
+
+### Filtering and Transforming Data
+
+```typescript
+import { filter, map } from 'rxjs/operators';
+
+const dataStream = dlobClient.getMarketDataStream([marketId]);
+
+// Only process updates with spread < $1
+const filteredStream = dataStream.pipe(
+  filter(data => {
+    const bestBid = data.deserializedData.bids[0]?.price || 0;
+    const bestAsk = data.deserializedData.asks[0]?.price || Infinity;
+    const spread = bestAsk - bestBid;
+    return spread < 1;
+  }),
+  map(data => ({
+    market: data.marketId.key,
+    midpoint: (data.deserializedData.bids[0].price + data.deserializedData.asks[0].price) / 2
+  })
+));
+
+filteredStream.subscribe(({ market, midpoint }) => {
+  console.log(`${market} midpoint: $${midpoint}`);
+});
+```
+
+### Multiple Orderbook Views with Different Groupings
+
+```typescript
+import { MarketId } from '@drift-labs/common';
+
+const marketId = MarketId.createPerpMarketId(0); // SOL-PERP
+
+// Create three clients with different groupings
+const clients = [
+  { grouping: 0.01, name: 'Fine' },
+  { grouping: 0.1, name: 'Medium' },
+  { grouping: 1, name: 'Coarse' }
+].map(config => {
+  const client = new DlobWebsocketClient({
+    websocketUrl: 'wss://dlob.drift.trade/ws'
+  });
+  
+  client.subscribeToMarkets([{
+    marketId,
+    grouping: config.grouping
+  }]);
+  
+  client.getMarketDataStream([marketId]).subscribe(data => {
+    console.log(`${config.name} view:`, data.deserializedData.bids.slice(0, 5));
+  });
+  
+  return client;
+});
+
+// Cleanup
+clients.forEach(client => client.destroy());
+```
+
+### Combining Multiple Market Streams
+
+```typescript
+import { combineLatest } from 'rxjs';
+import { map } from 'rxjs/operators';
+
+const solId = MarketId.createPerpMarketId(0);
+const btcId = MarketId.createPerpMarketId(1);
+
+dlobClient.subscribeToMarkets([
+  { marketId: solId },
+  { marketId: btcId }
+]);
+
+const solStream = dlobClient.getMarketDataStream([solId]);
+const btcStream = dlobClient.getMarketDataStream([btcId]);
+
+// Get combined updates
+combineLatest([solStream, btcStream]).pipe(
+  map(([solData, btcData]) => ({
+    sol: solData.deserializedData.bids[0]?.price || 0,
+    btc: btcData.deserializedData.bids[0]?.price || 0
+  }))
+).subscribe(prices => {
+  console.log(`SOL: $${prices.sol}, BTC: $${prices.btc}`);
+  console.log(`BTC/SOL ratio: ${prices.btc / prices.sol}`);
+});
+```
+
+### Error Handling and Fallback
+
+```typescript
+import { retry, catchError } from 'rxjs/operators';
+import { EMPTY } from 'rxjs';
+
+const dlobClient = new DlobWebsocketClient({
+  websocketUrl: 'wss://dlob.drift.trade/ws',
+  onFallback: (marketId) => {
+    console.error(`WebSocket failed for ${marketId.key}`);
+    // Switch to polling fallback
+    startPollingFallback(marketId);
+  }
+});
+
+const dataStream = dlobClient.getMarketDataStream([marketId]).pipe(
+  retry(3), // Retry up to 3 times
+  catchError(error => {
+    console.error('Stream error after retries:', error);
+    // Return empty stream to complete gracefully
+    return EMPTY;
+  })
+);
+```
+
+## Performance Optimization
+
+### String Caching
+
+The client implements internal string caching to reduce memory allocation:
+
+```typescript
+// Internally cached strings (max 1000 entries):
+// - Subscription keys: `${marketKey}_${channel}_${grouping}`
+// - Result keys: `${channel}_${marketKey}`
+```
+
+### Slot Filtering
+
+The `ResultSlotIncrementer` automatically:
+- Filters out-of-order messages (lower slot numbers)
+- Handles tab return scenario (prevents processing backlog)
+- Tracks message timestamps for accurate filtering
+
+### Subscription Management
+
+The reactive subscription pipeline:
+1. Uses `distinctUntilChanged` to avoid redundant re-subscriptions
+2. `switchMap` cancels previous subscription management when markets change
+3. Automatically cleans up websocket connections when no longer needed
+
+## Common Patterns
+
+### React Integration
+
+```typescript
+import { useEffect, useState } from 'react';
+import { DlobWebsocketClient, MarketId } from '@drift-labs/common';
+
+function OrderbookComponent({ marketId }) {
+  const [orderbook, setOrderbook] = useState(null);
+  
+  useEffect(() => {
+    const client = new DlobWebsocketClient({
+      websocketUrl: 'wss://dlob.drift.trade/ws'
+    });
+    
+    client.subscribeToMarkets([{ marketId }]);
+    
+    const subscription = client.getMarketDataStream([marketId]).subscribe({
+      next: (data) => setOrderbook(data.deserializedData),
+      error: (err) => console.error(err)
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+      client.destroy();
+    };
+  }, [marketId]);
+  
+  if (!orderbook) return <div>Loading...</div>;
+  
+  return (
+    <div>
+      <h3>Best Bid: ${orderbook.bids[0]?.price}</h3>
+      <h3>Best Ask: ${orderbook.asks[0]?.price}</h3>
+    </div>
+  );
+}
+```
+
+### Calculating Orderbook Depth
+
+```typescript
+const dataStream = dlobClient.getMarketDataStream([marketId]);
+
+dataStream.subscribe(data => {
+  const bids = data.deserializedData.bids;
+  const asks = data.deserializedData.asks;
+  
+  // Calculate total bid/ask liquidity
+  const bidLiquidity = bids.reduce((sum, level) => 
+    sum + (level.price * level.size), 0
+  );
+  
+  const askLiquidity = asks.reduce((sum, level) => 
+    sum + (level.price * level.size), 0
+  );
+  
+  console.log('Bid liquidity:', bidLiquidity);
+  console.log('Ask liquidity:', askLiquidity);
+  console.log('Imbalance:', (bidLiquidity - askLiquidity) / (bidLiquidity + askLiquidity));
+});
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="MultiplexWebSocket" icon="plug" href="/api/websocket/multiplex-websocket">
+    Underlying websocket multiplexing infrastructure
+  </Card>
+  
+  <Card title="ResultSlotIncrementer" icon="filter" href="/api/utils/result-slot-incrementer">
+    Slot tracking and filtering logic
+  </Card>
+</CardGroup>

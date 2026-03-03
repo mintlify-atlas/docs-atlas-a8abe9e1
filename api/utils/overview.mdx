@@ -1,0 +1,140 @@
+---
+title: 'Common Utilities Overview'
+description: 'Utility functions and classes for working with Drift Common'
+---
+
+The Drift Common utilities provide essential helper functions and classes for working with numbers, logging, tokens, WebSockets, and priority fees.
+
+## Available Utilities
+
+<CardGroup cols={2}>
+  <Card title="Math Utilities" icon="calculator" href="/api/utils/math">
+    Calculate spreads, bid/ask prices, and mark prices for orderbooks
+  </Card>
+  
+  <Card title="NumLib" icon="hashtag" href="/api/utils/numlib">
+    Number formatting and conversion utilities for UI display and blockchain precision
+  </Card>
+  
+  <Card title="Logger" icon="file-lines" href="/api/utils/logger">
+    Winston-based logging with Slack integration and custom log levels
+  </Card>
+  
+  <Card title="Token Utilities" icon="coins" href="/api/utils/token">
+    SPL token address and account management utilities
+  </Card>
+  
+  <Card title="Priority Fees" icon="bolt" href="/api/utils/priority-fees">
+    Calculate and manage Solana transaction priority fees
+  </Card>
+  
+  <Card title="WebSocket" icon="network-wired" href="/api/utils/websocket">
+    Multiplexed WebSocket connections with automatic reconnection
+  </Card>
+</CardGroup>
+
+## Common Use Cases
+
+### Number Formatting
+
+```typescript
+import { NumLib } from '@drift/common';
+
+// Format notional dollar values
+const formatted = NumLib.formatNum.toNotionalDisplay(1234.567);
+// "$1,234.57"
+
+// Convert to trade precision
+const tradePrecision = NumLib.formatNum.toTradePrecision(0.123456789);
+// 0.123457
+
+// Format large numbers
+const millified = NumLib.millify(1234567);
+// { displayString: "1.23M", mantissa: 1000000, ... }
+```
+
+### Logging
+
+```typescript
+import { logger } from '@drift/common';
+
+logger.info('Processing transaction');
+logger.error('Transaction failed');
+logger.alert('Critical system alert'); // Sends to Slack if configured
+```
+
+### Token Management
+
+```typescript
+import { getTokenAddress, createTokenAccountIx } from '@drift/common';
+import { PublicKey } from '@solana/web3.js';
+
+// Get associated token address
+const tokenAddress = await getTokenAddress(
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC mint
+  userPublicKey.toString()
+);
+
+// Create token account instruction
+const createIx = await createTokenAccountIx(
+  new PublicKey(userPublicKey),
+  new PublicKey(mintAddress)
+);
+```
+
+### Priority Fees
+
+```typescript
+import { PriorityFeeCalculator } from '@drift/common';
+
+// Calculate dynamic compute unit price
+const cuPrice = PriorityFeeCalculator.calculateDynamicCUPriceToUse({
+  latestFeeSample: 5000,
+  boostMultiplier: 1.5,
+  extraMultiplier: 1.0
+});
+
+// Convert to SOL amount
+const feeInSol = PriorityFeeCalculator.getPriorityFeeInSolForComputeUnitPrice(
+  cuPrice,
+  600_000 // compute units
+);
+```
+
+### WebSocket Connections
+
+```typescript
+import { MultiplexWebSocket } from '@drift/common';
+
+const { unsubscribe } = MultiplexWebSocket.createWebSocketSubscription({
+  wsUrl: 'wss://api.example.com/ws',
+  subscriptionId: 'my-subscription',
+  subscribeMessage: JSON.stringify({ action: 'subscribe', channel: 'trades' }),
+  unsubscribeMessage: JSON.stringify({ action: 'unsubscribe', channel: 'trades' }),
+  onMessage: (message) => {
+    console.log('Received:', message);
+  },
+  onError: (error) => {
+    console.error('WebSocket error:', error);
+  },
+  enableHeartbeatMonitoring: true
+});
+
+// Later, unsubscribe
+unsubscribe();
+```
+
+## Import Paths
+
+All utilities can be imported from `@drift/common`:
+
+```typescript
+import {
+  NumLib,
+  logger,
+  getTokenAddress,
+  PriorityFeeCalculator,
+  MultiplexWebSocket,
+  COMMON_MATH
+} from '@drift/common';
+```

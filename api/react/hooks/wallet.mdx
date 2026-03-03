@@ -1,0 +1,194 @@
+---
+title: "Wallet Hooks"
+description: "React hooks for managing wallet connections and SOL balances"
+---
+
+## useWalletContext
+
+Retrieves the currently connected wallet context from the Drift Common store.
+
+### Signature
+
+```typescript
+function useWalletContext(): WalletContextState | undefined
+```
+
+### Returns
+
+The current wallet context state, or `undefined` if no wallet is connected.
+
+### Example
+
+```tsx
+import { useWalletContext } from '@drift/react';
+
+function WalletInfo() {
+  const walletContext = useWalletContext();
+
+  if (!walletContext?.publicKey) {
+    return <div>No wallet connected</div>;
+  }
+
+  return (
+    <div>
+      <p>Connected: {walletContext.publicKey.toString()}</p>
+      <p>Adapter: {walletContext.wallet?.adapter?.name}</p>
+    </div>
+  );
+}
+```
+
+### Source
+
+`source/react/src/hooks/useWalletContext.tsx:5`
+
+---
+
+## useWallet
+
+Retrieves the Drift wallet context directly from React context.
+
+### Signature
+
+```typescript
+function useWallet(): DriftWalletContextType
+```
+
+### Returns
+
+The Drift wallet context from the `DriftWalletContext` provider.
+
+### Example
+
+```tsx
+import { useWallet } from '@drift/react';
+
+function WalletActions() {
+  const driftWallet = useWallet();
+
+  return (
+    <button onClick={() => driftWallet.connect()}>
+      Connect Wallet
+    </button>
+  );
+}
+```
+
+### Source
+
+`source/react/src/hooks/useWalletContext.tsx:13`
+
+---
+
+## useSyncWalletToStore
+
+Keeps the wallet authority and connection state synchronized with the application store. This hook listens to wallet connect/disconnect events and updates the store accordingly.
+
+### Signature
+
+```typescript
+function useSyncWalletToStore(clearDataFromStore?: () => void): void
+```
+
+### Parameters
+
+<ParamField path="clearDataFromStore" type="() => void" optional>
+  Optional callback function to clear application-specific data from the store when the wallet disconnects or changes.
+</ParamField>
+
+### Behavior
+
+- **On Connect**: Sets the wallet authority in the store, resets SOL balance to 0 (unloaded state), and calls `handleWalletConnect` action
+- **On Disconnect**: Clears the authority, resets SOL balance, calls `handleWalletDisconnect` action, and invokes the optional `clearDataFromStore` callback
+- **On Adapter Change**: Removes previous event listeners and sets up new ones
+
+### Example
+
+```tsx
+import { useSyncWalletToStore } from '@drift/react';
+import { useMyAppStore } from './store';
+
+function WalletSync() {
+  const clearMyAppData = useMyAppStore((s) => s.clearUserData);
+  
+  // Sync wallet to Drift store and clear app data on disconnect
+  useSyncWalletToStore(clearMyAppData);
+
+  return null; // This component just handles side effects
+}
+```
+
+### Implementation Details
+
+- Resets `currentSolBalance` to `BigNum(0, BASE_PRECISION_EXP)` with `loaded: false` on both connect and disconnect
+- Updates `authority` and `authorityString` in the store
+- Cleans up event listeners when the wallet adapter changes
+
+### Source
+
+`source/react/src/hooks/useSyncWalletToStore.tsx:12`
+
+---
+
+## useSolBalance
+
+Tracks the connected wallet's SOL balance and keeps it updated in the application store. Uses `onAccountChange` subscription for real-time updates and polling as a fallback.
+
+### Signature
+
+```typescript
+function useSolBalance(disable?: boolean): void
+```
+
+### Parameters
+
+<ParamField path="disable" type="boolean" default={false}>
+  When `true`, disables balance tracking. Useful for conditionally enabling the hook.
+</ParamField>
+
+### Behavior
+
+- **Initial Load**: Fetches the current balance when wallet connects
+- **Real-time Updates**: Subscribes to account changes using `connection.onAccountChange`
+- **Polling Fallback**: Polls for balance at `basePollingRateMs` interval until initial balance is loaded
+- **On Disconnect**: Sets balance to zero and removes the account change listener
+
+### Example
+
+```tsx
+import { useSolBalance, useCommonDriftStore } from '@drift/react';
+
+function BalanceDisplay() {
+  // Enable balance tracking (use only once in your app)
+  useSolBalance();
+
+  // Read balance from store
+  const solBalance = useCommonDriftStore((s) => s.currentSolBalance);
+
+  if (!solBalance.loaded) {
+    return <div>Loading balance...</div>;
+  }
+
+  return (
+    <div>
+      Balance: {solBalance.value.toNum()} SOL
+    </div>
+  );
+}
+```
+
+### Important Notes
+
+<Warning>
+  Only use this hook **once** across your entire application. All components should read the balance from the store using `useCommonDriftStore((s) => s.currentSolBalance)` rather than calling this hook multiple times.
+</Warning>
+
+### Store Updates
+
+Updates `currentSolBalance` in the store with:
+- `value`: `BigNum` representation of the balance in lamports
+- `loaded`: Boolean indicating whether the initial balance has been fetched
+
+### Source
+
+`source/react/src/hooks/useSolBalance.tsx:10`

@@ -1,0 +1,750 @@
+---
+title: '@drift-labs/react'
+description: 'React components, hooks, and providers for building Drift Protocol applications'
+icon: 'react'
+---
+
+## Overview
+
+`@drift-labs/react` provides a comprehensive set of React components, hooks, and state management utilities specifically designed for building Drift Protocol applications. Built on top of `@drift-labs/common`, this package handles wallet connection, account subscriptions, real-time data updates, and UI components.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @drift-labs/react @drift-labs/common @drift-labs/icons
+```
+
+```bash yarn
+yarn add @drift-labs/react @drift-labs/common @drift-labs/icons
+```
+
+```bash bun
+bun add @drift-labs/react @drift-labs/common @drift-labs/icons
+```
+</CodeGroup>
+
+### Peer Dependencies
+
+<Warning>
+  This package requires React 19 and specific versions of Solana libraries.
+</Warning>
+
+```bash
+npm install react@19.0.3 react-dom@19.0.3 \
+  @drift-labs/sdk@^2.158.0-beta.0 \
+  @solana/web3.js@1.98.0 \
+  @solana/spl-token@0.3.8
+```
+
+## Quick Start
+
+### Basic Setup
+
+Wrap your app with the `DriftProvider` to enable Drift functionality:
+
+```tsx
+import { DriftProvider } from '@drift-labs/react';
+import { DEFAULT_BREAKPOINTS } from '@drift-labs/react';
+
+function App() {
+  return (
+    <DriftProvider
+      breakpoints={DEFAULT_BREAKPOINTS}
+      wallets={[]} // Optional: provide wallet adapters
+    >
+      <YourApp />
+    </DriftProvider>
+  );
+}
+```
+
+<Info>
+  The `DriftProvider` automatically sets up wallet connection, RPC connection management, SOL balance tracking, and geo-blocking checks.
+</Info>
+
+### Using Hooks
+
+Access Drift functionality through hooks:
+
+```tsx
+import { useCommonDriftStore, useSolBalance } from '@drift-labs/react';
+
+function WalletInfo() {
+  const authority = useCommonDriftStore((s) => s.authority);
+  const solBalance = useCommonDriftStore((s) => s.currentSolBalance);
+  
+  if (!authority) {
+    return <div>Wallet not connected</div>;
+  }
+  
+  return (
+    <div>
+      <p>Address: {authority.toString()}</p>
+      <p>Balance: {solBalance.value.toString()} SOL</p>
+    </div>
+  );
+}
+```
+
+## Core Components
+
+### DriftProvider
+
+The main provider component that wraps your application:
+
+```tsx
+import { DriftProvider } from '@drift-labs/react';
+import type { DriftProviderProps } from '@drift-labs/react';
+
+const breakpoints = {
+  mobile: 768,
+  tablet: 1024,
+  desktop: 1440,
+};
+
+function App() {
+  return (
+    <DriftProvider
+      breakpoints={breakpoints}
+      wallets={wallets}
+      disableAutoconnect={false}
+      autoconnectionDelay={2000}
+      disable={{
+        idlePollingRateSwitcher: false,
+        emulation: false,
+        geoblocking: false,
+        initConnection: false,
+        subscribeSolBalance: false,
+      }}
+      geoBlocking={{
+        callback: () => {
+          console.log('User is geo-blocked');
+        },
+      }}
+    >
+      <YourApp />
+    </DriftProvider>
+  );
+}
+```
+
+<Tip>
+  You can disable individual features using the `disable` prop to optimize performance for specific use cases.
+</Tip>
+
+### DriftWalletProvider
+
+Handles Solana wallet connection (used internally by `DriftProvider`):
+
+```tsx
+import { DriftWalletProvider } from '@drift-labs/react';
+import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
+
+const wallets = [
+  new PhantomWalletAdapter(),
+  new SolflareWalletAdapter(),
+];
+
+function WalletWrapper({ children }) {
+  return (
+    <DriftWalletProvider
+      wallets={wallets}
+      disableAutoconnect={false}
+      autoconnectionDelay={2000}
+    >
+      {children}
+    </DriftWalletProvider>
+  );
+}
+```
+
+## Essential Hooks
+
+### useCommonDriftStore
+
+Access the global Drift application state:
+
+```tsx
+import { useCommonDriftStore } from '@drift-labs/react';
+
+function AccountInfo() {
+  const authority = useCommonDriftStore((s) => s.authority);
+  const connection = useCommonDriftStore((s) => s.connection);
+  const env = useCommonDriftStore((s) => s.env);
+  const driftClient = useCommonDriftStore((s) => s.driftClient.client);
+  
+  // Access setter for mutations
+  const set = useCommonDriftStore((s) => s.set);
+  
+  const updateSetting = () => {
+    set((state) => {
+      state.someSetting = newValue;
+    });
+  };
+  
+  return <div>...</div>;
+}
+```
+
+<Note>
+  The store uses Zustand with Immer for immutable state updates. See `stores/useCommonDriftStore.tsx:1` for the full state schema.
+</Note>
+
+### useSolBalance
+
+Automatically tracks SOL balance for the connected wallet:
+
+```tsx
+import { useSolBalance, useCommonDriftStore } from '@drift-labs/react';
+
+function BalanceDisplay() {
+  // Hook is already called in DriftProvider, just read from store
+  const balance = useCommonDriftStore((s) => s.currentSolBalance);
+  
+  return (
+    <div>
+      {balance.loaded ? (
+        <span>{balance.value.toNum()} SOL</span>
+      ) : (
+        <span>Loading...</span>
+      )}
+    </div>
+  );
+}
+```
+
+<Info>
+  The hook subscribes to account changes via `connection.onAccountChange()`, providing real-time balance updates. See `hooks/useSolBalance.tsx:10`.
+</Info>
+
+### useWalletContext
+
+Access wallet adapter context:
+
+```tsx
+import { useWalletContext } from '@drift-labs/react';
+
+function ConnectButton() {
+  const { connect, disconnect, connected, publicKey } = useWalletContext();
+  
+  return (
+    <button onClick={() => connected ? disconnect() : connect()}>
+      {connected ? `Disconnect ${publicKey?.toString().slice(0, 4)}...` : 'Connect Wallet'}
+    </button>
+  );
+}
+```
+
+### useDriftClientIsReady
+
+Check if the Drift client is initialized and ready:
+
+```tsx
+import { useDriftClientIsReady } from '@drift-labs/react';
+
+function TradingInterface() {
+  const isReady = useDriftClientIsReady();
+  
+  if (!isReady) {
+    return <LoadingSpinner />;
+  }
+  
+  return <TradingPanel />;
+}
+```
+
+### useCurrentRpc
+
+Get the current RPC endpoint:
+
+```tsx
+import { useCurrentRpc } from '@drift-labs/react';
+
+function RpcStatus() {
+  const currentRpc = useCurrentRpc();
+  
+  return <div>Connected to: {currentRpc.label}</div>;
+}
+```
+
+### useEmulation
+
+Handle account emulation for testing:
+
+```tsx
+import { useEmulation } from '@drift-labs/react';
+
+function EmulationToggle() {
+  const { emulationMode, setEmulationMode } = useEmulation();
+  
+  return (
+    <button onClick={() => setEmulationMode(!emulationMode)}>
+      {emulationMode ? 'Exit Emulation' : 'Enter Emulation'}
+    </button>
+  );
+}
+```
+
+### useAccountExists
+
+Check if a user account exists:
+
+```tsx
+import { useAccountExists } from '@drift-labs/react';
+
+function AccountStatus() {
+  const accountExists = useAccountExists();
+  
+  if (accountExists === null) {
+    return <div>Checking account...</div>;
+  }
+  
+  return accountExists ? <Dashboard /> : <CreateAccountPrompt />;
+}
+```
+
+### useAccountCreationCost
+
+Get the cost to create a new Drift account:
+
+```tsx
+import { useAccountCreationCost } from '@drift-labs/react';
+
+function CreateAccountButton() {
+  const creationCost = useAccountCreationCost();
+  
+  return (
+    <button>
+      Create Account ({creationCost.toFixed(4)} SOL)
+    </button>
+  );
+}
+```
+
+## Priority Fees
+
+### usePriorityFeeUserSettings
+
+Manage user's priority fee preferences:
+
+```tsx
+import { usePriorityFeeUserSettings } from '@drift-labs/react';
+
+function PriorityFeeSettings() {
+  const {
+    currentPriorityFeeMethod,
+    setCurrentPriorityFeeMethod,
+    currentMaxPriorityFeeCap,
+    setCurrentMaxPriorityFeeCap,
+    currentCustomPriorityFee,
+    setCurrentCustomPriorityFee,
+  } = usePriorityFeeUserSettings();
+  
+  return (
+    <div>
+      <select
+        value={currentPriorityFeeMethod}
+        onChange={(e) => setCurrentPriorityFeeMethod(e.target.value)}
+      >
+        <option value="auto">Auto</option>
+        <option value="custom">Custom</option>
+      </select>
+      
+      {currentPriorityFeeMethod === 'custom' && (
+        <input
+          type="number"
+          value={currentCustomPriorityFee}
+          onChange={(e) => setCurrentCustomPriorityFee(Number(e.target.value))}
+        />
+      )}
+    </div>
+  );
+}
+```
+
+### useCurrentPriorityFee
+
+Get the computed priority fee for transactions:
+
+```tsx
+import { useCurrentPriorityFee } from '@drift-labs/react';
+
+function TransactionPreview() {
+  const priorityFee = useCurrentPriorityFee();
+  
+  return (
+    <div>
+      <p>Priority Fee: {priorityFee} micro-lamports</p>
+    </div>
+  );
+}
+```
+
+## Oracle Prices
+
+### useCurrentOraclePrice
+
+Get real-time oracle price for a market:
+
+```tsx
+import { useCurrentOraclePrice } from '@drift-labs/react';
+
+function MarketPrice({ marketIndex }) {
+  const price = useCurrentOraclePrice(marketIndex, 'perp');
+  
+  return <div>Current Price: ${price?.toFixed(2)}</div>;
+}
+```
+
+### useOraclePriceStore
+
+Access the oracle price store directly:
+
+```tsx
+import { useOraclePriceStore } from '@drift-labs/react';
+
+function PriceMonitor() {
+  const perpPrices = useOraclePriceStore((s) => s.perpOraclePriceData);
+  const spotPrices = useOraclePriceStore((s) => s.spotOraclePriceData);
+  
+  return (
+    <div>
+      {perpPrices.map((price, index) => (
+        <div key={index}>Market {index}: ${price}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Utility Hooks
+
+### useImmediateInterval
+
+Run a callback immediately and then on an interval:
+
+```tsx
+import { useImmediateInterval } from '@drift-labs/react';
+
+function DataRefresher() {
+  const [data, setData] = useState(null);
+  
+  useImmediateInterval(
+    async () => {
+      const newData = await fetchData();
+      setData(newData);
+    },
+    5000 // Every 5 seconds
+  );
+  
+  return <div>{data}</div>;
+}
+```
+
+### useSyncLocalStorage
+
+Sync state with localStorage:
+
+```tsx
+import { useSyncLocalStorage } from '@drift-labs/react';
+
+function ThemeToggle() {
+  const [theme, setTheme] = useSyncLocalStorage('theme', 'dark');
+  
+  return (
+    <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+      Current: {theme}
+    </button>
+  );
+}
+```
+
+### useDisableScroll
+
+Disable page scrolling (useful for modals):
+
+```tsx
+import { useDisableScroll } from '@drift-labs/react';
+
+function Modal({ isOpen }) {
+  useDisableScroll(isOpen);
+  
+  if (!isOpen) return null;
+  
+  return <div className="modal">...</div>;
+}
+```
+
+### useTargetedPopover
+
+Manage popover positioning with Floating UI:
+
+```tsx
+import { useTargetedPopover } from '@drift-labs/react';
+
+function Tooltip({ children, content }) {
+  const {
+    isOpen,
+    setIsOpen,
+    refs,
+    floatingStyles,
+  } = useTargetedPopover({
+    placement: 'top',
+    offset: 8,
+  });
+  
+  return (
+    <>
+      <div
+        ref={refs.setReference}
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+      >
+        {children}
+      </div>
+      
+      {isOpen && (
+        <div ref={refs.setFloating} style={floatingStyles}>
+          {content}
+        </div>
+      )}
+    </>
+  );
+}
+```
+
+## UI Components
+
+### Table Components
+
+Pre-built table components for displaying market data:
+
+```tsx
+import {
+  HeaderRow,
+  HeaderCell,
+  BodyRow,
+  BodyCell,
+} from '@drift-labs/react';
+
+function MarketTable({ markets }) {
+  return (
+    <table>
+      <HeaderRow>
+        <HeaderCell>Market</HeaderCell>
+        <HeaderCell>Price</HeaderCell>
+        <HeaderCell>24h Change</HeaderCell>
+      </HeaderRow>
+      
+      <tbody>
+        {markets.map((market) => (
+          <BodyRow key={market.index}>
+            <BodyCell>{market.symbol}</BodyCell>
+            <BodyCell>${market.price}</BodyCell>
+            <BodyCell>{market.change}%</BodyCell>
+          </BodyRow>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+```
+
+### Loaders
+
+Loading indicators:
+
+```tsx
+import { Spinner, SkeletonLoader } from '@drift-labs/react';
+
+function LoadingState() {
+  return (
+    <div>
+      <Spinner size="large" />
+      <SkeletonLoader width={200} height={20} />
+    </div>
+  );
+}
+```
+
+### Select Components
+
+Customizable select inputs:
+
+```tsx
+import { Select } from '@drift-labs/react';
+
+function MarketSelector({ markets, value, onChange }) {
+  return (
+    <Select
+      value={value}
+      onChange={onChange}
+      options={markets.map((m) => ({
+        value: m.index,
+        label: m.symbol,
+      }))}
+    />
+  );
+}
+```
+
+## Charts
+
+### useGroupHistoricalPricesByAverage
+
+Group historical price data for charting:
+
+```tsx
+import { useGroupHistoricalPricesByAverage } from '@drift-labs/react';
+
+function PriceChart({ prices }) {
+  const groupedData = useGroupHistoricalPricesByAverage(prices, '1h');
+  
+  return <LineChart data={groupedData} />;
+}
+```
+
+## Store Management
+
+### useCommonDriftStore
+
+The main application store built with Zustand:
+
+```tsx
+import { useCommonDriftStore } from '@drift-labs/react';
+
+// Read state
+const authority = useCommonDriftStore((s) => s.authority);
+const connection = useCommonDriftStore((s) => s.connection);
+
+// Update state
+const set = useCommonDriftStore((s) => s.set);
+set((state) => {
+  state.someValue = newValue;
+});
+
+// Get entire state (use sparingly)
+const get = useCommonDriftStore((s) => s.get);
+const fullState = get();
+```
+
+### useScreenSizeStore
+
+Responsive design utilities:
+
+```tsx
+import { useScreenSizeStore } from '@drift-labs/react';
+
+function ResponsiveComponent() {
+  const isMobile = useScreenSizeStore((s) => s.isMobile);
+  const isTablet = useScreenSizeStore((s) => s.isTablet);
+  const isDesktop = useScreenSizeStore((s) => s.isDesktop);
+  
+  if (isMobile) return <MobileView />;
+  if (isTablet) return <TabletView />;
+  return <DesktopView />;
+}
+```
+
+## Advanced Patterns
+
+### Custom RPC Management
+
+```tsx
+import { useCommonDriftStore, useHandleBadRpc } from '@drift-labs/react';
+
+function RpcSwitcher() {
+  const currentRpc = useCommonDriftStore((s) => s.rpc);
+  const set = useCommonDriftStore((s) => s.set);
+  
+  useHandleBadRpc(); // Automatically switch on errors
+  
+  const switchRpc = (newRpc) => {
+    set((state) => {
+      state.rpc = newRpc;
+    });
+  };
+  
+  return <RpcSelector current={currentRpc} onSwitch={switchRpc} />;
+}
+```
+
+### Geo-blocking
+
+```tsx
+import { useGeoBlocking } from '@drift-labs/react';
+
+function App() {
+  const isBlocked = useGeoBlocking(() => {
+    console.log('User is geo-blocked');
+    // Redirect or show message
+  });
+  
+  if (isBlocked) {
+    return <div>Service not available in your region</div>;
+  }
+  
+  return <MainApp />;
+}
+```
+
+## Package Structure
+
+```
+react/
+├── src/
+│   ├── actions/          # Action creators
+│   ├── components/       # UI components
+│   ├── constants/        # Constants and configs
+│   ├── hooks/           # React hooks
+│   ├── providers/       # Context providers
+│   ├── stores/          # Zustand stores
+│   ├── utils/           # Utility functions
+│   └── index.ts         # Main export
+├── lib/                 # Compiled output
+├── package.json
+└── tsconfig.json
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="State Management">
+    - Use `useCommonDriftStore` selectors to avoid unnecessary re-renders
+    - Only select the specific state slices you need
+    - Use `set` with Immer for state mutations
+  </Accordion>
+  
+  <Accordion title="Wallet Connection">
+    - Always check `authority` before making transactions
+    - Handle disconnection gracefully
+    - Use `useWalletContext` for wallet adapter methods
+  </Accordion>
+  
+  <Accordion title="Performance">
+    - Disable unused DriftProvider features
+    - Use `useImmediateInterval` instead of multiple `useEffect` + `setInterval`
+    - Memoize expensive computations
+  </Accordion>
+</AccordionGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Common Package" icon="toolbox" href="/packages/common-ts">
+    Core utilities used by this package
+  </Card>
+  
+  <Card title="Icons Package" icon="icons" href="/packages/icons">
+    Icon components for your UI
+  </Card>
+  
+  <Card title="GitHub Repository" icon="github" href="https://github.com/drift-labs/drift-common/tree/master/react">
+    View source code
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="/api-reference">
+    Complete API documentation
+  </Card>
+</CardGroup>

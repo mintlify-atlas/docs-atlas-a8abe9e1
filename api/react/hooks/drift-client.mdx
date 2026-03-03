@@ -1,0 +1,217 @@
+---
+title: "Drift Client Hooks"
+description: "React hooks for managing and interacting with the Drift Protocol client"
+---
+
+## useDriftClientIsReady
+
+Checks whether the Drift client is subscribed and ready to use for executing transactions and reading data.
+
+### Signature
+
+```typescript
+function useDriftClientIsReady(): boolean
+```
+
+### Returns
+
+`boolean` - `true` if the Drift client is subscribed and ready, `false` otherwise.
+
+### Example
+
+```tsx
+import { useDriftClientIsReady } from '@drift/react';
+
+function TradingInterface() {
+  const isReady = useDriftClientIsReady();
+
+  if (!isReady) {
+    return (
+      <div className="loading-state">
+        <Spinner />
+        <p>Connecting to Drift Protocol...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <OrderForm />
+      <PositionsList />
+    </div>
+  );
+}
+```
+
+### Implementation
+
+This hook calls the `checkIsDriftClientReady()` method from the Drift Common store, which verifies that:
+- The Drift client exists
+- The client is subscribed to on-chain data
+- The client is ready to process requests
+
+### Source
+
+`source/react/src/hooks/useDriftClientIsReady.tsx:6`
+
+---
+
+## useCommonDriftActions
+
+Provides access to the common Drift actions object, which contains methods for managing connections, wallet interactions, and account subscriptions.
+
+### Signature
+
+```typescript
+function useCommonDriftActions(): DriftActions
+```
+
+### Returns
+
+An object containing the following action methods:
+
+#### handleWalletConnect
+
+```typescript
+handleWalletConnect(
+  authority: PublicKey,
+  adapter: Adapter,
+  subscribeToDriftUsers?: boolean
+): Promise<void>
+```
+
+Handles wallet connection by updating the Drift client wallet, fetching user accounts, and subscribing to user data.
+
+**Parameters:**
+- `authority` - The wallet's public key
+- `adapter` - The wallet adapter instance
+- `subscribeToDriftUsers` - Whether to subscribe to Drift user accounts (default: `true`)
+
+#### handleWalletDisconnect
+
+```typescript
+handleWalletDisconnect(): Promise<void>
+```
+
+Handles wallet disconnection by switching to a random wallet and clearing user data from the store.
+
+#### updateConnection
+
+```typescript
+updateConnection({
+  newRpc,
+  newDriftEnv,
+  subscribeToAccounts,
+  additionalDriftClientConfig
+}: UpdateConnectionParams): Promise<void>
+```
+
+Updates the RPC connection and optionally the Drift environment.
+
+**Parameters:**
+- `newRpc` - The new RPC endpoint to connect to
+- `newDriftEnv` - Optional new Drift environment (`'mainnet-beta'` | `'devnet'`)
+- `subscribeToAccounts` - Whether to subscribe to accounts after updating (default: `true`)
+- `additionalDriftClientConfig` - Additional Drift client configuration options
+
+#### fetchAndSubscribeToUsersAndSubaccounts
+
+```typescript
+fetchAndSubscribeToUsersAndSubaccounts(
+  driftClient: DriftClient,
+  authority: PublicKey
+): Promise<UserAccount[]>
+```
+
+Fetches all user accounts for an authority and subscribes to them.
+
+**Parameters:**
+- `driftClient` - The Drift client instance
+- `authority` - The authority public key to fetch accounts for
+
+**Returns:** Array of user accounts
+
+#### emulateAccount
+
+```typescript
+emulateAccount({ authority }: { authority: PublicKey }): Promise<void>
+```
+
+Enables read-only emulation mode for viewing another account's data without having access to the private key.
+
+**Parameters:**
+- `authority` - The public key of the account to emulate
+
+### Example
+
+```tsx
+import { useCommonDriftActions } from '@drift/react';
+import { PublicKey } from '@solana/web3.js';
+
+function RpcSwitcher() {
+  const actions = useCommonDriftActions();
+  const [switching, setSwitching] = useState(false);
+
+  const switchToNewRpc = async (rpcUrl: string) => {
+    setSwitching(true);
+    try {
+      await actions.updateConnection({
+        newRpc: { value: rpcUrl, label: 'Custom RPC' },
+        subscribeToAccounts: true,
+      });
+      console.log('Successfully switched RPC');
+    } catch (error) {
+      console.error('Failed to switch RPC:', error);
+    } finally {
+      setSwitching(false);
+    }
+  };
+
+  return (
+    <button 
+      onClick={() => switchToNewRpc('https://api.mainnet-beta.solana.com')}
+      disabled={switching}
+    >
+      {switching ? 'Switching...' : 'Switch to Mainnet RPC'}
+    </button>
+  );
+}
+```
+
+### Example: Account Emulation
+
+```tsx
+import { useCommonDriftActions } from '@drift/react';
+import { PublicKey } from '@solana/web3.js';
+
+function AccountViewer() {
+  const actions = useCommonDriftActions();
+  const [address, setAddress] = useState('');
+
+  const viewAccount = async () => {
+    try {
+      const publicKey = new PublicKey(address);
+      await actions.emulateAccount({ authority: publicKey });
+    } catch (error) {
+      console.error('Invalid address or emulation failed:', error);
+    }
+  };
+
+  return (
+    <div>
+      <input 
+        value={address}
+        onChange={(e) => setAddress(e.target.value)}
+        placeholder="Enter wallet address to view"
+      />
+      <button onClick={viewAccount}>View Account</button>
+    </div>
+  );
+}
+```
+
+### Source
+
+`source/react/src/hooks/useCommonDriftActions.tsx:7`
+
+Action implementations: `source/react/src/actions/driftActions.ts:28`

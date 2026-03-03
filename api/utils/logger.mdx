@@ -1,0 +1,233 @@
+---
+title: 'Logger'
+description: 'Winston-based logging with Slack integration and custom log levels'
+---
+
+The logger utility provides a Winston-based logging system with support for multiple log levels, Slack webhook integration for critical alerts, and optimized message formatting.
+
+## Import
+
+```typescript
+import { logger, setLogLevel, allEnvDlog } from '@drift/common';
+```
+
+## Logger Instance
+
+The default logger is a Winston logger instance with custom log levels and formatting.
+
+### Log Levels
+
+The logger supports the following levels (in order of severity):
+
+- `emerg` (0) - Emergency
+- `alert` (1) - Alert (sends to Slack if configured)
+- `crit` (2) - Critical
+- `error` (3) - Error
+- `warning` (4) - Warning
+- `notice` (5) - Notice
+- `info` (6) - Info (default level)
+- `debug` (7) - Debug
+
+### Configuration
+
+The logger can be configured via environment variables:
+
+<ParamField path="WEBHOOK_URL" type="string" env>
+  Slack webhook URL for alert notifications
+</ParamField>
+
+<ParamField path="RUNNING_LOCAL" type="string" env>
+  Set to 'true' to bypass Slack alerts during local development
+</ParamField>
+
+## Basic Usage
+
+### Standard Logging
+
+```typescript
+import { logger } from '@drift/common';
+
+logger.info('Application started');
+logger.warning('High memory usage detected');
+logger.error('Failed to process transaction');
+logger.debug('Variable state:', { value: 123 });
+```
+
+### Alert Logging (Slack Integration)
+
+```typescript
+import { logger } from '@drift/common';
+
+// This will log to console AND send to Slack (if WEBHOOK_URL is configured)
+logger.alert('Critical system failure detected');
+```
+
+### Set Log Level
+
+Change the minimum log level dynamically.
+
+<ParamField path="logLevel" type="string" required>
+  One of: 'emerg', 'alert', 'crit', 'error', 'warning', 'notice', 'info', 'debug'
+</ParamField>
+
+```typescript
+import { setLogLevel } from '@drift/common';
+
+// Only log warnings and above
+setLogLevel('warning');
+
+// Enable debug logging
+setLogLevel('debug');
+```
+
+## Advanced Features
+
+### allEnvDlog (Debug Logging)
+
+Utility for structured debug logging with categorization.
+
+<ParamField path="key" type="string" required>
+  Category/key for the debug message
+</ParamField>
+
+<ParamField path="message" type="any" required>
+  Message to log
+</ParamField>
+
+<ParamField path="optionalParams" type="any[]">
+  Additional parameters to log
+</ParamField>
+
+```typescript
+import { allEnvDlog } from '@drift/common';
+
+allEnvDlog('websocket', 'Connection established', { url: 'wss://...' });
+// Output: 🔧::websocket::
+// Connection established { url: 'wss://...' }
+
+allEnvDlog('cache', 'Cache miss for key', 'user:123');
+// Output: 🔧::cache::
+// Cache miss for key user:123
+```
+
+## Logger Type
+
+The logger instance is typed as `Logger` (Winston Logger):
+
+```typescript
+import { Logger } from '@drift/common';
+
+function setupLogging(customLogger: Logger) {
+  customLogger.info('Custom logger initialized');
+}
+```
+
+## Implementation Details
+
+### Message Formatting
+
+The logger uses an optimized message formatter with template caching to reduce string concatenation overhead:
+
+```typescript
+// Format: [timestamp] LEVEL: message
+[2026-03-03T10:30:45.123Z] INFO: Application started
+[2026-03-03T10:30:46.456Z] ERROR: Transaction failed
+```
+
+### Slack Integration
+
+When `WEBHOOK_URL` is configured and `RUNNING_LOCAL` is not 'true', alert-level messages are sent to Slack:
+
+```typescript
+// This sends to both console and Slack
+logger.alert('Database connection lost');
+```
+
+The Slack message format matches the console format:
+```
+[2026-03-03T10:30:45.123Z] ALERT: Database connection lost
+```
+
+### Performance Optimization
+
+The logger includes a template cache (max 100 templates) to optimize repeated log formatting:
+
+```typescript
+// Template is cached after first use
+logger.info('Message 1'); // Creates and caches template
+logger.info('Message 2'); // Reuses cached template
+```
+
+## Complete Example
+
+```typescript
+import { logger, setLogLevel, allEnvDlog } from '@drift/common';
+
+// Configure log level
+setLogLevel('info');
+
+// Basic logging
+logger.info('Service started');
+logger.info('Connected to database');
+
+// Warning
+logger.warning('Rate limit approaching', {
+  current: 950,
+  limit: 1000
+});
+
+// Error logging
+try {
+  // Some operation
+  throw new Error('Invalid input');
+} catch (error) {
+  logger.error('Operation failed', error);
+}
+
+// Critical alert (goes to Slack if configured)
+logger.alert('System overload detected');
+
+// Debug logging with categories
+allEnvDlog('cache', 'Cache stats', {
+  hits: 1000,
+  misses: 50,
+  ratio: 0.95
+});
+
+allEnvDlog('websocket', 'Subscription created', {
+  channel: 'trades',
+  market: 'SOL-PERP'
+});
+```
+
+## Environment Setup
+
+### Production
+
+```bash
+# .env
+WEBHOOK_URL=https://hooks.slack.com/services/YOUR/WEBHOOK/URL
+```
+
+### Local Development
+
+```bash
+# .env.local
+RUNNING_LOCAL=true
+# Slack alerts will be bypassed
+```
+
+## Browser Logger
+
+For browser environments, a separate logger implementation is available:
+
+```typescript
+// Automatically imported in browser contexts
+import { logger } from '@drift/common';
+```
+
+Location: `~/workspace/source/common-ts/src/utils/logger.browser.ts`
+
+## Source Code
+
+Location: `~/workspace/source/common-ts/src/utils/logger.ts`

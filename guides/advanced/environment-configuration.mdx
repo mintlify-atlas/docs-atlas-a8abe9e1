@@ -1,0 +1,317 @@
+---
+title: Environment Configuration
+description: Advanced environment configuration for Drift Common, including RPC endpoints, API servers, and network settings
+---
+
+Drift Common provides centralized environment configuration for connecting to Drift services across different networks (mainnet, devnet, staging).
+
+## Environment Constants
+
+The `EnvironmentConstants` object contains all network-specific endpoints:
+
+```typescript
+import { EnvironmentConstants } from '@drift-labs/common';
+```
+
+## RPC Endpoints
+
+Configure Solana RPC connections with multiple providers:
+
+### Mainnet RPCs
+
+```typescript
+const mainnetRpcs = EnvironmentConstants.rpcs.mainnet;
+// [
+//   {
+//     label: 'Triton RPC Pool 1',
+//     value: 'https://drift-drift_ma-39b5.mainnet.rpcpool.com/',
+//     wsValue: 'wss://drift-drift_ma-39b5.mainnet.rpcpool.com/whirligig',
+//     allowAdditionalConnection: true
+//   },
+//   {
+//     label: 'Helius 1',
+//     value: 'https://kora-8cwrc2-fast-mainnet.helius-rpc.com/',
+//     wsValue: 'wss://kora-8cwrc2-fast-mainnet.helius-rpc.com/',
+//     allowAdditionalConnection: true
+//   }
+// ]
+```
+
+### Devnet RPCs
+
+```typescript
+const devRpcs = EnvironmentConstants.rpcs.dev;
+// [
+//   {
+//     label: 'Helius',
+//     value: 'https://detailed-sharleen-fast-devnet.helius-rpc.com',
+//     wsValue: 'wss://detailed-sharleen-fast-devnet.helius-rpc.com',
+//     allowAdditionalConnection: true
+//   },
+//   {
+//     label: 'RPC Pool',
+//     value: 'https://drift-drift-a827.devnet.rpcpool.com/...',
+//     wsValue: 'wss://drift-drift-a827.devnet.rpcpool.com/.../whirligig',
+//     allowAdditionalConnection: false
+//   }
+// ]
+```
+
+### RPC Endpoint Interface
+
+```typescript
+interface RpcEndpoint {
+  label: string;                    // Human-readable provider name
+  value: string;                    // HTTPS RPC endpoint
+  wsValue?: string;                 // WebSocket endpoint (optional)
+  allowAdditionalConnection: boolean; // Whether multiple connections allowed
+}
+```
+
+## API Server URLs
+
+### History Server
+
+Historical trading data and analytics:
+
+```typescript
+const historyUrl = EnvironmentConstants.historyServerUrl.mainnet;
+// 'https://mainnet-beta.api.drift.trade'
+
+const devHistoryUrl = EnvironmentConstants.historyServerUrl.dev;
+// 'https://master.api.drift.trade'
+
+const stagingHistoryUrl = EnvironmentConstants.historyServerUrl.staging;
+// 'https://staging.api.drift.trade'
+```
+
+### Data Server
+
+Real-time market data and price feeds:
+
+```typescript
+const dataUrl = EnvironmentConstants.dataServerUrl.mainnet;
+// 'https://data.api.drift.trade'
+
+const devDataUrl = EnvironmentConstants.dataServerUrl.dev;
+// 'https://data-master.api.drift.trade'
+```
+
+### DLOB Server
+
+Decentralized Limit Order Book access:
+
+```typescript
+// HTTP endpoint
+const dlobHttp = EnvironmentConstants.dlobServerHttpUrl.mainnet;
+// 'https://dlob.drift.trade'
+
+// WebSocket endpoint
+const dlobWs = EnvironmentConstants.dlobServerWsUrl.mainnet;
+// 'wss://dlob.drift.trade/ws'
+```
+
+### Events Server
+
+Real-time event streaming:
+
+```typescript
+const eventsUrl = EnvironmentConstants.eventsServerUrl.mainnet;
+// 'wss://events.drift.trade/ws'
+
+// Note: Only available for mainnet and staging
+```
+
+### Swift Server
+
+High-performance transaction execution:
+
+```typescript
+const swiftUrl = EnvironmentConstants.swiftServerUrl.mainnet;
+// 'https://swift.drift.trade'
+
+const swiftStaging = EnvironmentConstants.swiftServerUrl.staging;
+// 'https://master.swift.drift.trade'
+```
+
+## SDK Configuration
+
+Initialize the Drift SDK with environment-specific settings:
+
+```typescript
+import { Config, Initialize } from '@drift-labs/common';
+import { DriftEnv } from '@drift-labs/sdk';
+
+// Initialize for mainnet
+const sdkConfig = Initialize('mainnet-beta');
+
+// Access initialized config
+if (Config.initialized) {
+  const spotMarkets = Config.spotMarketsLookup;
+  const perpMarkets = Config.perpMarketsLookup;
+}
+```
+
+## Config Object
+
+The global `Config` object maintains SDK state:
+
+```typescript
+export const Config: {
+  initialized: boolean;
+  spotMarketsLookup: SpotMarketConfig[];
+  perpMarketsLookup: PerpMarketConfig[];
+  sdkConfig: ReturnType<typeof initialize>;
+}
+```
+
+### Accessing Market Configs
+
+```typescript
+import { Config } from '@drift-labs/common';
+
+// Get spot market by index
+const usdcMarket = Config.spotMarketsLookup[0];
+
+// Get perp market by index
+const solPerpMarket = Config.perpMarketsLookup[0];
+```
+
+## Environment Selection
+
+Choose the appropriate environment based on your use case:
+
+### Mainnet (Production)
+
+```typescript
+const env: DriftEnv = 'mainnet-beta';
+Initialize(env);
+```
+
+Use for:
+- Production applications
+- Real trading
+- Live user data
+
+### Devnet (Development)
+
+```typescript
+const env: DriftEnv = 'devnet';
+Initialize(env);
+```
+
+Use for:
+- Development and testing
+- Integration testing
+- Feature development
+
+### Staging
+
+```typescript
+// Staging environment (when available)
+// Use staging URLs from EnvironmentConstants
+```
+
+Use for:
+- Pre-production testing
+- Release candidate validation
+- Performance testing
+
+## Connection Strategies
+
+### Single RPC Connection
+
+```typescript
+const primaryRpc = EnvironmentConstants.rpcs.mainnet[0];
+
+const connection = new Connection(primaryRpc.value, {
+  commitment: 'confirmed',
+  wsEndpoint: primaryRpc.wsValue
+});
+```
+
+### RPC Failover
+
+```typescript
+const rpcs = EnvironmentConstants.rpcs.mainnet;
+let connection;
+
+for (const rpc of rpcs) {
+  try {
+    connection = new Connection(rpc.value);
+    await connection.getLatestBlockhash();
+    break; // Connection successful
+  } catch (error) {
+    console.error(`Failed to connect to ${rpc.label}`);
+  }
+}
+```
+
+### Multiple Connections
+
+```typescript
+const allowedRpcs = EnvironmentConstants.rpcs.mainnet
+  .filter(rpc => rpc.allowAdditionalConnection);
+
+const connections = allowedRpcs.map(rpc => 
+  new Connection(rpc.value, { commitment: 'confirmed' })
+);
+```
+
+## Best Practices
+
+### Environment Variables
+
+Store environment selection in environment variables:
+
+```typescript
+const DRIFT_ENV = process.env.DRIFT_ENV as DriftEnv || 'mainnet-beta';
+Initialize(DRIFT_ENV);
+```
+
+### Lazy Initialization
+
+Initialize only when needed:
+
+```typescript
+if (!Config.initialized) {
+  Initialize('mainnet-beta');
+}
+```
+
+### Type Safety
+
+Use TypeScript for environment safety:
+
+```typescript
+type Environment = 'dev' | 'mainnet' | 'staging';
+
+function getHistoryUrl(env: Environment): string {
+  return EnvironmentConstants.historyServerUrl[env];
+}
+```
+
+### Error Handling
+
+Handle connection failures gracefully:
+
+```typescript
+try {
+  const config = Initialize('mainnet-beta');
+  // Use config...
+} catch (error) {
+  console.error('Failed to initialize SDK:', error);
+  // Fallback logic...
+}
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Error Handling" icon="circle-exclamation" href="/guides/advanced/error-handling">
+    Learn about error handling strategies
+  </Card>
+  <Card title="Performance Optimization" icon="gauge-high" href="/guides/advanced/performance-optimization">
+    Optimize your Drift integration
+  </Card>
+</CardGroup>

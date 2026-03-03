@@ -1,0 +1,545 @@
+---
+title: "Constants and Enums"
+description: "Constant values and enumerations used throughout Drift Common"
+---
+
+The constants module provides predefined values, market identifiers, and configuration objects used across the Drift protocol.
+
+## Order Type Constants
+
+UI-friendly order type configurations.
+
+**Location:** `constants/orders.ts`
+
+### UIOrderTypeValue
+
+Type definition for order type configuration:
+
+```typescript
+interface UIOrderTypeValue {
+  label: string;           // Display label
+  value: string;           // Internal value
+  orderType: OrderType;    // SDK OrderType enum
+  description?: string;    // Description for UI
+}
+```
+
+### Order Types
+
+#### Market Order
+
+```typescript
+const MARKET_ORDER_TYPE_CONFIG: UIOrderTypeValue = {
+  label: 'Market',
+  value: 'market',
+  orderType: OrderType.MARKET,
+  description: 'A Market Order is an order to buy or sell an asset immediately at the current Market Price. Users can set a maximum slippage tolerance.'
+}
+```
+
+#### Limit Order
+
+```typescript
+const LIMIT_ORDER_TYPE_CONFIG: UIOrderTypeValue = {
+  label: 'Limit',
+  value: 'limit',
+  orderType: OrderType.LIMIT,
+  description: 'A Limit Order is an order to buy or sell a given asset at a specified price. Limit Orders are triggered once Oracle Price reaches the specified price.'
+}
+```
+
+#### Stop Market Order
+
+```typescript
+const STOP_MARKET_ORDER_TYPE_CONFIG: UIOrderTypeValue = {
+  label: 'Stop Market',
+  value: 'stopMarket',
+  orderType: OrderType.TRIGGER_MARKET,
+  description: 'A Stop Market Order is an order to close the position of a given asset if its specified Trigger Price is reached. If this happens, the position is closed at Market Price.'
+}
+```
+
+#### Stop Limit Order
+
+```typescript
+const STOP_LIMIT_ORDER_TYPE_CONFIG: UIOrderTypeValue = {
+  label: 'Stop Limit',
+  value: 'stopLimit',
+  orderType: OrderType.TRIGGER_LIMIT,
+  description: 'A Stop Limit Order will only execute where the specified Trigger Price of a given asset is reached. If this happens, a Limit Order at the specified Limit Price will be placed.'
+}
+```
+
+#### Take Profit Market Order
+
+```typescript
+const TAKE_PROFIT_MARKET_ORDER_TYPE_CONFIG: UIOrderTypeValue = {
+  label: 'TP Market',
+  value: 'takeProfitMarket',
+  orderType: OrderType.TRIGGER_MARKET,
+  description: 'A Take Profit Order is an order to close the position of a given asset if its Oracle Price reaches the specified Trigger Price. If this happens, the position is closed at Market Price.'
+}
+```
+
+#### Take Profit Limit Order
+
+```typescript
+const TAKE_PROFIT_LIMIT_ORDER_TYPE_CONFIG: UIOrderTypeValue = {
+  label: 'TP Limit',
+  value: 'takeProfitLimit',
+  orderType: OrderType.TRIGGER_LIMIT,
+  description: 'A Take Profit Limit Order will only execute where the Oracle Price of a given asset reaches the Trigger Price. If this happens, a Limit Order at the specified Limit Price will be placed.'
+}
+```
+
+#### Oracle Market Order
+
+```typescript
+const ORACLE_MARKET_ORDER_TYPE_CONFIG: UIOrderTypeValue = {
+  label: 'Oracle Market',
+  value: 'oracle',
+  orderType: OrderType.ORACLE
+}
+```
+
+#### Oracle Limit Order
+
+```typescript
+const ORACLE_LIMIT_ORDER_TYPE_CONFIG: UIOrderTypeValue = {
+  label: 'Oracle Limit',
+  value: 'oracleLimit',
+  orderType: OrderType.LIMIT,
+  description: 'An Oracle Limit Order allows you to specify an offset rather than limit price to execute your order. The offset represents the price above/below the current Oracle Price you want to be filled at.'
+}
+```
+
+#### Scaled Orders
+
+```typescript
+const SCALED_ORDERS_ORDER_TYPE_CONFIG: UIOrderTypeValue = {
+  label: 'Scale',
+  value: 'scaledOrders',
+  orderType: OrderType.LIMIT,
+  description: 'A scaled order automatically generates multiple limit orders within a specified price range. It splits the order amount into several suborders and places them separately without significantly impacting the market.'
+}
+```
+
+### Order Type Lookup
+
+```typescript
+const UI_ORDER_TYPES: UIOrderTypeLookup = {
+  market: MARKET_ORDER_TYPE_CONFIG,
+  limit: LIMIT_ORDER_TYPE_CONFIG,
+  stopMarket: STOP_MARKET_ORDER_TYPE_CONFIG,
+  stopLimit: STOP_LIMIT_ORDER_TYPE_CONFIG,
+  takeProfitMarket: TAKE_PROFIT_MARKET_ORDER_TYPE_CONFIG,
+  takeProfitLimit: TAKE_PROFIT_LIMIT_ORDER_TYPE_CONFIG,
+  oracle: ORACLE_MARKET_ORDER_TYPE_CONFIG,
+  oracleLimit: ORACLE_LIMIT_ORDER_TYPE_CONFIG,
+  scaledOrders: SCALED_ORDERS_ORDER_TYPE_CONFIG
+}
+
+const UI_ORDER_TYPES_LIST = Object.values(UI_ORDER_TYPES);
+```
+
+### Usage
+
+```typescript
+import { UI_ORDER_TYPES, UI_ORDER_TYPES_LIST } from '@drift/common';
+
+// Get order type config
+const limitOrderConfig = UI_ORDER_TYPES.limit;
+console.log(limitOrderConfig.label); // "Limit"
+console.log(limitOrderConfig.description);
+
+// Render order type selector
+UI_ORDER_TYPES_LIST.forEach(orderType => {
+  console.log(`${orderType.label}: ${orderType.description}`);
+});
+
+// Map to SDK OrderType
+const sdkOrderType = UI_ORDER_TYPES.market.orderType;
+// Use sdkOrderType with SDK methods
+```
+
+## Market Index Constants
+
+Predefined market index constants for common markets.
+
+**Location:** `constants/markets.ts`
+
+### Spot Market Indexes
+
+```typescript
+const USDC_SPOT_MARKET_INDEX = 0;
+const SOL_SPOT_MARKET_INDEX = 1;
+const WBTC_SPOT_MARKET_INDEX = 3;
+const WETH_SPOT_MARKET_INDEX = 4;
+const CBBTC_SPOT_MARKET_INDEX = 27;
+```
+
+### Usage
+
+```typescript
+import { SOL_SPOT_MARKET_INDEX, USDC_SPOT_MARKET_INDEX } from '@drift/common';
+import { Config } from '@drift/common';
+
+// Get SOL spot market config
+const solMarket = Config.spotMarketsLookup[SOL_SPOT_MARKET_INDEX];
+console.log('SOL Market:', solMarket.symbol);
+
+// Get USDC spot market (quote currency)
+const usdcMarket = Config.spotMarketsLookup[USDC_SPOT_MARKET_INDEX];
+```
+
+### Market Leverage
+
+```typescript
+const DEFAULT_MAX_MARKET_LEVERAGE = 10;
+```
+
+### Hidden Perp Markets
+
+Low-activity perp markets hidden from UI by default.
+
+```typescript
+const HIDDEN_PERP_MARKET_INDEXES: ReadonlySet<number> = new Set([
+  5,   // POL
+  10,  // 1MPEPE
+  11,  // OP
+  14,  // HNT
+  19,  // TIA
+  21,  // SEI
+  27,  // W
+  31,  // CLOUD
+  34,  // POPCAT
+  42,  // TON
+  61,  // ME
+  62,  // PENGU
+  64,  // TRUMP
+  66,  // BERA
+  69,  // KAITO
+  70,  // IP
+  72,  // ADA
+  77,  // XPL
+  78,  // 2Z
+  80,  // MNT
+  82,  // MET
+]);
+```
+
+**Usage:**
+
+```typescript
+import { HIDDEN_PERP_MARKET_INDEXES } from '@drift/common';
+
+// Filter visible markets
+const visibleMarkets = allPerpMarkets.filter(
+  market => !HIDDEN_PERP_MARKET_INDEXES.has(market.marketIndex)
+);
+
+// Show hidden market if user has position
+const shouldShow = userHasPosition || !HIDDEN_PERP_MARKET_INDEXES.has(marketIndex);
+```
+
+## Account Constants
+
+Solana account rent and cost constants.
+
+**Location:** `constants/misc.ts`
+
+### Account Costs
+
+```typescript
+import { BigNum, LAMPORTS_EXP } from '@drift-labs/sdk';
+
+// 0.0001 SOL donation
+const NEW_ACCOUNT_DONATION = BigNum.fromPrint('0.0001', LAMPORTS_EXP);
+
+// 0.035 SOL base rent
+const NEW_ACCOUNT_BASE_RENT = new BigNum('31347840', LAMPORTS_EXP);
+
+// Swift account rent
+const SWIFT_ACCOUNT_BASE_RENT = new BigNum('2756160', LAMPORTS_EXP);
+
+// Total cost = donation + base rent + swift rent
+const NEW_ACCOUNT_BASE_COST = NEW_ACCOUNT_BASE_RENT
+  .add(NEW_ACCOUNT_DONATION)
+  .add(SWIFT_ACCOUNT_BASE_RENT);
+
+// 0.002 SOL for insurance fund stake account
+const IF_STAKE_ACCOUNT_BASE_RENT = BigNum.fromPrint('0.002', LAMPORTS_EXP);
+
+// 0.015 SOL minimum leftover
+const MIN_LEFTOVER_SOL = BigNum.fromPrint('0.015', LAMPORTS_EXP);
+```
+
+### Usage
+
+```typescript
+import { 
+  NEW_ACCOUNT_BASE_COST, 
+  MIN_LEFTOVER_SOL,
+  IF_STAKE_ACCOUNT_BASE_RENT 
+} from '@drift/common';
+import { LAMPORTS_PER_SOL } from '@solana/web3.js';
+
+// Check if user has enough SOL to create account
+const userSolBalance = BigNum.from(
+  userLamports,
+  new BN(LAMPORTS_PER_SOL)
+);
+
+const totalNeeded = NEW_ACCOUNT_BASE_COST.add(MIN_LEFTOVER_SOL);
+
+if (userSolBalance.gte(totalNeeded)) {
+  console.log('User has enough SOL to create account');
+  console.log('Account cost:', NEW_ACCOUNT_BASE_COST.print(), 'SOL');
+} else {
+  console.log('Insufficient SOL balance');
+}
+
+// Calculate IF stake account cost
+const ifStakeCost = IF_STAKE_ACCOUNT_BASE_RENT;
+console.log('IF stake rent:', ifStakeCost.print(), 'SOL');
+```
+
+### Time Constants
+
+```typescript
+const ONE_DAY_MS = 1000 * 60 * 60 * 24; // 86,400,000 milliseconds
+```
+
+## Pool Constants
+
+Liquidity pool identifiers.
+
+**Location:** `constants/pools.ts`
+
+```typescript
+const MAIN_POOL_ID = 0;
+const JLP_POOL_ID = 1;
+const LST_POOL_ID = 2;
+const EXPONENT_POOL_ID = 3;
+const SACRED_POOL_ID = 4;
+```
+
+### Usage
+
+```typescript
+import { MAIN_POOL_ID, JLP_POOL_ID } from '@drift/common';
+
+// Get pool-specific data
+const poolId = MAIN_POOL_ID;
+const poolData = await fetchPoolData(poolId);
+```
+
+## Trade Constants
+
+Constants for trade operations.
+
+**Location:** `constants/trade.ts`
+
+```typescript
+const EMPTY_AUCTION_PARAMS: AuctionParams = {
+  auctionStartPrice: null,
+  auctionEndPrice: null,
+  auctionDuration: null
+};
+```
+
+### Usage
+
+```typescript
+import { EMPTY_AUCTION_PARAMS } from '@drift/common';
+
+// Initialize order without auction
+const orderParams = {
+  ...baseOrderParams,
+  ...EMPTY_AUCTION_PARAMS
+};
+```
+
+## Prediction Market Constants
+
+Constants for prediction markets.
+
+**Location:** `constants/predictionMarket.ts`
+
+```typescript
+import { 
+  MAX_PREDICTION_PRICE, 
+  BigNum, 
+  PRICE_PRECISION, 
+  PRICE_PRECISION_EXP 
+} from '@drift-labs/sdk';
+
+const MAX_PREDICTION_PRICE_NUM = 
+  MAX_PREDICTION_PRICE.div(PRICE_PRECISION).toNumber();
+
+const MAX_PREDICTION_PRICE_BIG_NUM = BigNum.from(
+  MAX_PREDICTION_PRICE,
+  PRICE_PRECISION_EXP
+);
+```
+
+### Usage
+
+```typescript
+import { 
+  MAX_PREDICTION_PRICE_NUM, 
+  MAX_PREDICTION_PRICE_BIG_NUM 
+} from '@drift/common';
+
+// Validate prediction market price
+if (price > MAX_PREDICTION_PRICE_NUM) {
+  throw new Error('Price exceeds maximum');
+}
+
+// Display max price
+console.log('Max price:', MAX_PREDICTION_PRICE_BIG_NUM.print());
+```
+
+## Superstake LST Constants
+
+Liquid staking token (LST) configurations for SuperStake feature.
+
+**Location:** `constants/superstake.ts`
+
+### LST Type
+
+```typescript
+type LST = {
+  symbol: string;              // Display symbol
+  driftAccountName: string;    // Drift account name
+  spotMarket: SpotMarketConfig; // Spot market config
+  logoUrl: string;             // Logo path
+  maxLeverage: number;         // Maximum leverage
+  defaultLeverage: number;     // Default leverage for UI
+  emissionsTokenSymbol?: string; // Emissions token if any
+  onlyDirectRoute?: boolean;   // Use only direct swap routes
+}
+```
+
+### Supported LSTs
+
+#### Marinade SOL (mSOL)
+
+```typescript
+const M_SOL: LST = {
+  symbol: 'mSOL',
+  driftAccountName: 'Super Stake SOL',
+  spotMarket: MainnetSpotMarkets[2],
+  logoUrl: '/mSol.svg',
+  maxLeverage: 3,
+  defaultLeverage: 2,
+  onlyDirectRoute: true
+}
+```
+
+#### Jito SOL
+
+```typescript
+const JITO_SOL: LST = {
+  symbol: 'JitoSOL',
+  driftAccountName: 'Super Stake JitoSOL',
+  spotMarket: MainnetSpotMarkets[6],
+  logoUrl: '/jitoSol.svg',
+  maxLeverage: 1.8,
+  defaultLeverage: 1.4,
+  onlyDirectRoute: true
+}
+```
+
+#### Blaze SOL (bSOL)
+
+```typescript
+const B_SOL: LST = {
+  symbol: 'bSOL',
+  driftAccountName: 'Super Stake bSOL',
+  spotMarket: MainnetSpotMarkets[8],
+  logoUrl: '/bsol.svg',
+  maxLeverage: 2.5,
+  defaultLeverage: 1.8,
+  emissionsTokenSymbol: 'BLZE',
+  onlyDirectRoute: true
+}
+```
+
+### LST Collections
+
+```typescript
+// Array of all LSTs
+const SUPERSTAKE_ALL_LST: LST[] = [M_SOL, JITO_SOL, B_SOL];
+
+// Map for lookup by symbol
+const SUPERSTAKE_ALL_LST_MAP: Record<string, LST> = {
+  [M_SOL.symbol]: M_SOL,
+  [JITO_SOL.symbol]: JITO_SOL,
+  [B_SOL.symbol]: B_SOL
+}
+```
+
+### Usage
+
+```typescript
+import { 
+  SUPERSTAKE_ALL_LST, 
+  SUPERSTAKE_ALL_LST_MAP,
+  M_SOL,
+  JITO_SOL,
+  B_SOL
+} from '@drift/common';
+
+// Render LST selector
+SUPERSTAKE_ALL_LST.forEach(lst => {
+  console.log(`${lst.symbol}: Max ${lst.maxLeverage}x leverage`);
+  if (lst.emissionsTokenSymbol) {
+    console.log(`  Earning ${lst.emissionsTokenSymbol} emissions`);
+  }
+});
+
+// Get LST by symbol
+const jitoSol = SUPERSTAKE_ALL_LST_MAP['JitoSOL'];
+console.log('Jito SOL market index:', jitoSol.spotMarket.marketIndex);
+
+// Use in SuperStake flow
+const selectedLst = M_SOL;
+const maxAmount = calculateMaxStake(userCollateral, selectedLst.maxLeverage);
+const defaultAmount = calculateStake(userCollateral, selectedLst.defaultLeverage);
+```
+
+## Development Constants
+
+Performance testing labels.
+
+**Location:** `constants/dev.ts`
+
+```typescript
+const PERFORMANCE_TESTING_LABELS = {
+  totalRenders: 'Total Renders',
+  totalActualDuration: 'Total Render Duration',
+  min: 'Min Duration',
+  median: 'Median Duration',
+  max: 'Max Duration',
+  p90: '90th Percentile Duration',
+  mean: 'Mean Duration',
+  totalDurationMs: 'Total Profiling Duration',
+  totalDurationSec: 'Total Profiling Duration',
+  avgRendersPerSec: 'Average Renders Per Second',
+  avgDurationPerSec: 'Average Render Duration Per Second',
+  avgFPS: 'Avg FPS',
+  avgEventLoopLag: 'Avg Event Loop Lag'
+}
+```
+
+## Source Locations
+
+- `constants/orders.ts` - `/home/daytona/workspace/source/common-ts/src/constants/orders.ts`
+- `constants/markets.ts` - `/home/daytona/workspace/source/common-ts/src/constants/markets.ts`
+- `constants/misc.ts` - `/home/daytona/workspace/source/common-ts/src/constants/misc.ts`
+- `constants/pools.ts` - `/home/daytona/workspace/source/common-ts/src/constants/pools.ts`
+- `constants/trade.ts` - `/home/daytona/workspace/source/common-ts/src/constants/trade.ts`
+- `constants/predictionMarket.ts` - `/home/daytona/workspace/source/common-ts/src/constants/predictionMarket.ts`
+- `constants/superstake.ts` - `/home/daytona/workspace/source/common-ts/src/constants/superstake.ts`
+- `constants/dev.ts` - `/home/daytona/workspace/source/common-ts/src/constants/dev.ts`

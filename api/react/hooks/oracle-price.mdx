@@ -1,0 +1,170 @@
+---
+title: "Oracle Price Hooks"
+description: "React hooks for tracking and syncing oracle price data from multiple sources"
+---
+
+## useSyncOraclePriceStore
+
+Synchronizes oracle price data for specified markets to the oracle price store. This hook manages oracle clients for different oracle sources (Pyth, Switchboard, etc.) and keeps price data updated in real-time.
+
+### Signature
+
+```typescript
+function useSyncOraclePriceStore(
+  marketsAndAccounts: MarketAndAccount[],
+  refreshTimeMs?: number
+): void
+```
+
+### Parameters
+
+<ParamField path="marketsAndAccounts" type="MarketAndAccount[]" required>
+  Array of markets and their corresponding oracle account addresses to monitor.
+  
+  ```typescript
+  type MarketAndAccount = {
+    market: UIMarket;
+    accountToUse: PublicKey;
+  }
+  ```
+</ParamField>
+
+<ParamField path="refreshTimeMs" type="number" default={1000}>
+  How frequently (in milliseconds) to update the oracle price store with the latest local price data.
+</ParamField>
+
+### Behavior
+
+1. **Oracle Client Initialization**: Creates oracle clients for all supported oracle sources (Pyth, Switchboard, etc.) when the connection and Drift client are ready
+
+2. **Account Monitoring**: Uses the `BulkAccountLoader` to subscribe to oracle account updates for each market
+
+3. **Price Processing**: When oracle account data changes:
+   - Decodes the oracle price data using the appropriate oracle client
+   - Converts price data to `BigNum` format with proper precision
+   - Updates the local price store state with the new data
+
+4. **Store Synchronization**: Periodically syncs the local price state to the global `OraclePriceStore` at the specified refresh rate
+
+### Price Data Format
+
+Each market's price data includes:
+
+```typescript
+{
+  market: UIMarket;
+  priceData: {
+    price: number;          // Current oracle price
+    slot: number;           // Solana slot when price was updated
+    confidence: number;     // Price confidence interval
+    twap: number;           // Time-weighted average price
+    twapConfidence: number; // TWAP confidence interval
+    maxPrice?: number;      // Maximum price (if available)
+  };
+  rawPriceData: OraclePriceData; // Raw oracle data
+}
+```
+
+### Example
+
+```tsx
+import { useSyncOraclePriceStore, useOraclePriceStore } from '@drift/react';
+import { PublicKey } from '@solana/web3.js';
+import { useMemo } from 'react';
+
+function MarketPriceTracker({ markets }: { markets: UIMarket[] }) {
+  // Prepare markets and oracle accounts
+  const marketsAndAccounts = useMemo(() => {
+    return markets.map(market => ({
+      market,
+      accountToUse: market.market.amm.oracle, // Oracle account pubkey
+    }));
+  }, [markets]);
+
+  // Sync oracle prices to store (refresh every 500ms)
+  useSyncOraclePriceStore(marketsAndAccounts, 500);
+
+  return <PriceDisplay />;
+}
+
+function PriceDisplay() {
+  const priceStore = useOraclePriceStore((s) => s.symbolMap);
+
+  return (
+    <div>
+      {Object.entries(priceStore).map(([key, data]) => (
+        <div key={key}>
+          <h3>{data.market.symbol}</h3>
+          <p>Price: ${data.priceData.price.toFixed(2)}</p>
+          <p>Confidence: ±${data.priceData.confidence.toFixed(4)}</p>
+          <p>TWAP: ${data.priceData.twap.toFixed(2)}</p>
+          <p>Slot: {data.priceData.slot}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### Example: Single Market Price
+
+```tsx
+import { useSyncOraclePriceStore, useOraclePriceStore } from '@drift/react';
+import { useMemo } from 'react';
+
+function SOLPriceWidget({ solMarket }: { solMarket: UIMarket }) {
+  const marketsAndAccounts = useMemo(() => [{
+    market: solMarket,
+    accountToUse: solMarket.market.amm.oracle,
+  }], [solMarket]);
+
+  useSyncOraclePriceStore(marketsAndAccounts);
+
+  const solPrice = useOraclePriceStore(
+    (s) => s.symbolMap[solMarket.key]?.priceData.price
+  );
+
+  if (!solPrice) {
+    return <div>Loading price...</div>;
+  }
+
+  return (
+    <div className="price-widget">
+      <span className="symbol">SOL</span>
+      <span className="price">${solPrice.toFixed(2)}</span>
+    </div>
+  );
+}
+```
+
+### Implementation Details
+
+- **Oracle Clients**: Automatically initializes clients for all supported oracle sources:
+  - Pyth
+  - Switchboard
+  - QuoteAsset (for stable coins)
+  - Prelaunch Oracle
+
+- **Bulk Account Loader**: Uses the shared `BulkAccountLoader` for efficient account monitoring with minimal RPC calls
+
+- **Local State Management**: Maintains a local copy of price data using `useImmer` to prevent excessive re-renders. The store is only updated at the specified `refreshTimeMs` interval
+
+- **Cleanup**: Automatically removes account callbacks from the bulk loader when the component unmounts or when the markets list changes
+
+### Performance Considerations
+
+<Info>
+  The hook uses a two-tier update strategy:
+  1. Oracle account changes are processed immediately and stored locally
+  2. The global store is updated at the `refreshTimeMs` interval
+  
+  This prevents excessive re-renders across the app while still maintaining real-time price updates.
+</Info>
+
+<Warning>
+  Only use this hook for markets you actively need to monitor. Each market adds an account subscription, which consumes resources. Use `useMemo` to ensure the `marketsAndAccounts` array doesn't change unnecessarily.
+</Warning>
+
+### Source
+
+`source/react/src/hooks/oraclePrice/useSyncOraclePriceStore.ts:38`

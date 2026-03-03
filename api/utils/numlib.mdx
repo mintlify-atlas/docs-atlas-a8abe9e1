@@ -1,0 +1,412 @@
+---
+title: 'NumLib'
+description: 'Number formatting and conversion utilities for UI and blockchain precision'
+---
+
+The `NumLib` class provides comprehensive utilities for converting numbers and BigNumbers (BN) between different formats, precisions, and display representations.
+
+## Import
+
+```typescript
+import { NumLib } from '@drift/common';
+```
+
+## Configuration
+
+### setLocale
+
+Set the locale for number formatting.
+
+<ParamField path="locale" type="string" required>
+  Locale string (e.g., 'en', 'en-US', 'de-DE')
+</ParamField>
+
+```typescript
+NumLib.setLocale('en-US');
+```
+
+## Number Formatting (formatNum)
+
+### toTradePrecision
+
+Converts a number to a precision suitable for trading (6 significant figures).
+
+<ParamField path="num" type="number" required>
+  Number to format
+</ParamField>
+
+<ResponseField name="result" type="number">
+  Number with trade precision
+</ResponseField>
+
+```typescript
+const formatted = NumLib.formatNum.toTradePrecision(0.123456789);
+// 0.123457
+```
+
+### toTradePrecisionString
+
+Converts a number to a trade precision string with locale formatting options.
+
+<ParamField path="num" type="number" required>
+  Number to format
+</ParamField>
+
+<ParamField path="toLocaleString" type="boolean">
+  Whether to use locale string formatting
+</ParamField>
+
+```typescript
+const str = NumLib.formatNum.toTradePrecisionString(0.00123);
+// "0.00123"
+
+const localeStr = NumLib.formatNum.toTradePrecisionString(1234.56, true);
+// "1,234.56" (depending on locale)
+```
+
+### toNotionalDisplay
+
+Formats a dollar value for UI display with $ prefix and 2 decimal places.
+
+<ParamField path="num" type="number" required>
+  Dollar amount
+</ParamField>
+
+```typescript
+const display = NumLib.formatNum.toNotionalDisplay(1234.567);
+// "$1,234.57"
+
+const negative = NumLib.formatNum.toNotionalDisplay(-999.99);
+// "-$999.99"
+```
+
+### toNotionalNum
+
+Converts a dollar value to a number with 2 decimal precision.
+
+```typescript
+const num = NumLib.formatNum.toNotionalNum(1234.567);
+// 1234.57
+```
+
+### toBaseDisplay
+
+Formats base asset amounts with dynamic precision based on asset price.
+
+<ParamField path="baseAmount" type="number" required>
+  Base asset amount
+</ParamField>
+
+<ParamField path="assetPrice" type="number">
+  Asset price in dollars
+</ParamField>
+
+<ParamField path="skipLocaleFormatting" type="boolean" default={false}>
+  Use toFixed instead of toLocaleString
+</ParamField>
+
+<ParamField path="customSigFigs" type="number" default={5}>
+  Number of significant figures
+</ParamField>
+
+```typescript
+// Small amounts
+const small = NumLib.formatNum.toBaseDisplay(0.00001, 50000);
+// "0.0000"
+
+// Normal amounts
+const normal = NumLib.formatNum.toBaseDisplay(1.23456, 50000);
+// "1.2346" (5 sig figs)
+```
+
+### toBase
+
+Converts base amount to a number with precision based on asset price.
+
+```typescript
+const base = NumLib.formatNum.toBase(1.234567, 100);
+// 1.2346
+```
+
+### toBaseBN / toQuoteBN
+
+Convert numbers to BN with appropriate precision.
+
+```typescript
+import { AMM_RESERVE_PRECISION, QUOTE_PRECISION } from '@drift-labs/sdk';
+
+const baseBN = NumLib.formatNum.toBaseBN(1.5);
+// BN with AMM_RESERVE_PRECISION
+
+const quoteBN = NumLib.formatNum.toQuoteBN(1000);
+// BN with QUOTE_PRECISION
+```
+
+### toDisplayPrice
+
+Formats asset price for display with 6 significant figures.
+
+```typescript
+const price = NumLib.formatNum.toDisplayPrice(1234.5678);
+// "1,234.57"
+```
+
+### toPrice
+
+Formats asset price to a number with 6 decimal places.
+
+```typescript
+const price = NumLib.formatNum.toPrice(123.456789);
+// 123.456789
+```
+
+### toRawBn
+
+Converts a number to BN with specified precision.
+
+<ParamField path="num" type="number" required>
+  Number to convert
+</ParamField>
+
+<ParamField path="precision" type="BN" required>
+  Precision to use
+</ParamField>
+
+```typescript
+import { BN, QUOTE_PRECISION } from '@drift-labs/sdk';
+
+const bn = NumLib.formatNum.toRawBn(100.5, QUOTE_PRECISION);
+```
+
+### toDecimalPlaces
+
+Truncates a number to specified decimal places (rounds down).
+
+<ParamField path="num" type="number" required>
+  Number to truncate
+</ParamField>
+
+<ParamField path="decimalPlaces" type="number" required>
+  Number of decimal places
+</ParamField>
+
+<ParamField path="noPadding" type="boolean">
+  Don't pad with zeros
+</ParamField>
+
+```typescript
+const truncated = NumLib.formatNum.toDecimalPlaces(3.14159, 2);
+// "3.14"
+
+const padded = NumLib.formatNum.toDecimalPlaces(3.1, 4);
+// "3.1000"
+
+const noPad = NumLib.formatNum.toDecimalPlaces(3.1, 4, true);
+// "3.1"
+```
+
+## BN Formatting (formatBn)
+
+### toRawNum
+
+Converts a BN to a regular number with specified precision.
+
+<ParamField path="bn" type="BN" required>
+  BigNumber to convert
+</ParamField>
+
+<ParamField path="precision" type="BN" required>
+  Precision divisor
+</ParamField>
+
+<ParamField path="fixedAccuracy" type="number">
+  Fixed decimal accuracy
+</ParamField>
+
+```typescript
+import { BN, QUOTE_PRECISION } from '@drift-labs/sdk';
+
+const num = NumLib.formatBn.toRawNum(
+  new BN(100000000),
+  QUOTE_PRECISION
+);
+// 100.0
+```
+
+### fromQuote
+
+Converts a quote-precision BN to a number.
+
+```typescript
+import { BN } from '@drift-labs/sdk';
+
+const quoteBN = new BN(1000000000); // 1000 USDC in quote precision
+const num = NumLib.formatBn.fromQuote(quoteBN);
+// 1000.0
+```
+
+### fromBase
+
+Converts a base-precision BN to a number.
+
+```typescript
+import { BN } from '@drift-labs/sdk';
+
+const baseBN = new BN(1500000000); // 1.5 BTC in base precision
+const num = NumLib.formatBn.fromBase(baseBN);
+// 1.5
+```
+
+## Advanced Utilities
+
+### millify
+
+Formats large numbers with metric suffixes (K, M, B, T).
+
+<ParamField path="value" type="number" required>
+  Number to format
+</ParamField>
+
+<ResponseField name="mantissa" type="number">
+  The divisor used (1, 1000, 1000000, etc.)
+</ResponseField>
+
+<ResponseField name="symbol" type="string">
+  Metric suffix ('K', 'M', 'B', 'T', or '')
+</ResponseField>
+
+<ResponseField name="sigFigs" type="number">
+  Number of significant figures used
+</ResponseField>
+
+<ResponseField name="displayValue" type="number">
+  The formatted numeric value
+</ResponseField>
+
+<ResponseField name="displayString" type="string">
+  The complete formatted string
+</ResponseField>
+
+```typescript
+const result = NumLib.millify(1234567);
+// {
+//   mantissa: 1000000,
+//   symbol: 'M',
+//   sigFigs: 4,
+//   displayValue: 1.235,
+//   displayString: '1.235M'
+// }
+
+const billions = NumLib.millify(5_000_000_000);
+// { ..., displayString: '5B' }
+```
+
+### getDisplayPrecision
+
+Get the display precision for an asset based on its price.
+
+<ParamField path="assetPrice" type="BigNum" required>
+  Asset price
+</ParamField>
+
+```typescript
+import { BigNum, QUOTE_PRECISION } from '@drift-labs/sdk';
+
+const price = BigNum.from(new BN(100000000), QUOTE_PRECISION);
+const precision = NumLib.getDisplayPrecision(price);
+// 2 (for cents precision)
+```
+
+### bp
+
+Convert basis points to decimal.
+
+```typescript
+const decimal = NumLib.bp(50); // 50 basis points
+// 0.005 (0.5%)
+```
+
+### isInvalid
+
+Check if a number is invalid (NaN or Infinity).
+
+```typescript
+NumLib.isInvalid(100); // false
+NumLib.isInvalid(NaN); // true
+NumLib.isInvalid(Infinity); // true
+```
+
+### sumBigNums
+
+Sum an array of BigNum values.
+
+<ParamField path="nums" type="BigNum[]" required>
+  Array of BigNum values
+</ParamField>
+
+<ParamField path="precision" type="BN" required>
+  Precision for the result
+</ParamField>
+
+```typescript
+import { BigNum, QUOTE_PRECISION } from '@drift-labs/sdk';
+
+const nums = [
+  BigNum.from(new BN(100), QUOTE_PRECISION),
+  BigNum.from(new BN(200), QUOTE_PRECISION),
+];
+
+const sum = NumLib.sumBigNums(nums, QUOTE_PRECISION);
+```
+
+### averageBigNums
+
+Calculate average of BigNum values.
+
+```typescript
+import { BigNum, QUOTE_PRECISION } from '@drift-labs/sdk';
+
+const nums = [
+  BigNum.from(new BN(100), QUOTE_PRECISION),
+  BigNum.from(new BN(200), QUOTE_PRECISION),
+];
+
+const avg = NumLib.averageBigNums(nums, QUOTE_PRECISION);
+```
+
+## Complete Example
+
+```typescript
+import { NumLib } from '@drift/common';
+import { BN, QUOTE_PRECISION } from '@drift-labs/sdk';
+
+// Set locale
+NumLib.setLocale('en-US');
+
+// Format dollar amounts
+const usdDisplay = NumLib.formatNum.toNotionalDisplay(1234.56);
+console.log(usdDisplay); // "$1,234.56"
+
+// Format trading amounts
+const tradeAmount = NumLib.formatNum.toTradePrecision(0.123456789);
+console.log(tradeAmount); // 0.123457
+
+// Convert to BN
+const bn = NumLib.formatNum.toQuoteBN(1000);
+
+// Convert BN back to number
+const num = NumLib.formatBn.fromQuote(bn);
+console.log(num); // 1000
+
+// Format large numbers
+const { displayString } = NumLib.millify(5_000_000);
+console.log(displayString); // "5M"
+
+// Truncate decimals
+const truncated = NumLib.formatNum.toDecimalPlaces(3.14159, 2);
+console.log(truncated); // "3.14"
+```
+
+## Source Code
+
+Location: `~/workspace/source/common-ts/src/utils/NumLib.ts`

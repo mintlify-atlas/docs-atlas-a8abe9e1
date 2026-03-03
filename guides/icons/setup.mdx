@@ -1,0 +1,79 @@
+---
+title: Setting Up Icons Package
+description: Learn how to install and configure the Drift icons package in your project
+---
+
+The `@drift-labs/icons` package provides React icon components generated from Figma designs. This guide walks you through setting up the icons package in your project.
+
+## Installation
+
+Install the icons package using your preferred package manager:
+
+```bash
+yarn add @drift-labs/icons
+# or
+npm install @drift-labs/icons
+```
+
+## Package Details
+
+The icons package is distributed as both CommonJS and ESM modules:
+
+- **Main (CJS):** `dist/cjs/index.js`
+- **Module (ESM):** `dist/esm/index.js`
+- **Types:** `dist/index.d.ts`
+
+## Basic Import
+
+Import individual icon components from the package:
+
+```typescript
+import { Warning, Success, Trade, Wallet } from '@drift-labs/icons';
+```
+
+## TypeScript Support
+
+The package includes full TypeScript support with type definitions. The `IconProps` interface is exported for custom implementations:
+
+```typescript
+import { IconProps } from '@drift-labs/icons';
+
+type IconProps = {
+  /** Set icon fill color from design system */
+  color?: string;
+  /** Set width and height of icon in pixels */
+  size?: number;
+  /** Whether to scale icon according to font-size. Sets width and height to 1em. */
+  autoSize?: boolean;
+  /** Props to pass directly to svg element */
+  svgProps?: React.SVGProps<SVGSVGElement>;
+} & Omit<React.HTMLProps<HTMLSpanElement>, 'color' | 'size'>;
+```
+
+## Dependencies
+
+The icons package has minimal dependencies:
+
+- **React:** 19.0.0-rc-02c0e824-20241028
+
+Ensure your project uses a compatible React version.
+
+## Build Configuration
+
+The package is tree-shakeable and has no side effects:
+
+```json
+{
+  "sideEffects": false
+}
+```
+
+This allows bundlers like webpack and Rollup to optimize your bundle by removing unused icons.
+
+## Next Steps
+
+Now that you've installed the icons package, learn how to use icon components in your application:
+
+<Card title="Using Icon Components" icon="play" href="/guides/icons/usage">
+  Learn about icon props, styling, and best practices
+</Card>

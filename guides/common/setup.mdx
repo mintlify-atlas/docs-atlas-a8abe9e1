@@ -1,0 +1,252 @@
+---
+title: Setting Up the Common Package
+description: Learn how to install and configure the Drift Common package in your project
+---
+
+The `@drift-labs/common` package provides shared utilities, clients, and types used across Drift applications. This guide will walk you through setting up the package in your project.
+
+## Installation
+
+<Steps>
+  <Step title="Install the package">
+    Install the Common package using your preferred package manager:
+
+    ```bash npm
+    npm install @drift-labs/common
+    ```
+
+    ```bash yarn
+    yarn add @drift-labs/common
+    ```
+
+    ```bash pnpm
+    pnpm add @drift-labs/common
+    ```
+  </Step>
+
+  <Step title="Install peer dependencies">
+    The Common package requires the Drift SDK and Solana web3.js:
+
+    ```bash npm
+    npm install @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0
+    ```
+
+    ```bash yarn
+    yarn add @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0
+    ```
+
+    ```bash pnpm
+    pnpm add @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0
+    ```
+  </Step>
+
+  <Step title="Import components">
+    Import the components you need from the package:
+
+    ```typescript
+    import {
+      CandleClient,
+      DlobWebsocketClient,
+      SwiftClient,
+      COMMON_UTILS,
+      ENUM_UTILS,
+    } from '@drift-labs/common';
+    ```
+  </Step>
+</Steps>
+
+## Environment Configuration
+
+The Common package uses environment constants to determine which Drift environment to connect to.
+
+### Environment Types
+
+The package supports three environments:
+
+- **Mainnet** - Production environment
+- **Devnet** - Development/testing environment  
+- **Staging** - Pre-production environment
+
+### Setting Up Environment Constants
+
+```typescript
+import { EnvironmentConstants, UIEnv } from '@drift-labs/common';
+
+// Create environment configuration
+const env: UIEnv = {
+  sdkEnv: 'mainnet-beta', // or 'devnet'
+  isMainnet: true,
+  isDevnet: false,
+  isStaging: false,
+  key: 'mainnet',
+};
+
+// Access environment-specific URLs
+const dataServerUrl = EnvironmentConstants.dataServerUrl.mainnet;
+const dlobServerUrl = EnvironmentConstants.dlobServerUrl.mainnet;
+const swiftServerUrl = EnvironmentConstants.swiftServerUrl.mainnet;
+
+console.log('Data API:', dataServerUrl);
+// Output: https://data.api.drift.trade
+```
+
+## Package Structure
+
+The Common package is organized into several modules:
+
+### Client Modules
+
+Location: `@drift-labs/common`
+
+- **CandleClient** - Historical and real-time candle data
+- **DlobWebsocketClient** - Real-time orderbook data via WebSocket
+- **SwiftClient** - Swift order execution
+- **MarketDataFeed** - Market data subscriptions
+
+### Utility Modules
+
+Location: `@drift-labs/common`
+
+- **COMMON_UTILS** - Math, data fetching, and market utilities
+- **ENUM_UTILS** - Enum comparison and conversion helpers
+- **Token utilities** - SPL token account helpers
+- **Math utilities** - Price, spread, and statistical calculations
+
+### Type Definitions
+
+Location: `@drift-labs/common`
+
+- **MarketId** - Market identification
+- **UIEnv** - Environment configuration
+- **JsonCandle** - Candle data structure
+- **Serializable types** - Type-safe serialization
+
+## Basic Example
+
+Here's a complete example setting up the Common package for a trading application:
+
+```typescript
+import {
+  CandleClient,
+  DlobWebsocketClient,
+  SwiftClient,
+  EnvironmentConstants,
+  UIEnv,
+  MarketId,
+} from '@drift-labs/common';
+import { Connection } from '@solana/web3.js';
+import { DriftClient } from '@drift-labs/sdk';
+
+// 1. Set up environment
+const env: UIEnv = {
+  sdkEnv: 'mainnet-beta',
+  isMainnet: true,
+  isDevnet: false,
+  isStaging: false,
+  key: 'mainnet',
+};
+
+// 2. Initialize Solana connection
+const connection = new Connection(
+  'https://api.mainnet-beta.solana.com',
+  'confirmed'
+);
+
+// 3. Initialize Drift client
+const driftClient = new DriftClient({
+  connection,
+  env: env.sdkEnv,
+});
+
+await driftClient.subscribe();
+
+// 4. Initialize clients
+const candleClient = new CandleClient();
+
+const dlobClient = new DlobWebsocketClient({
+  websocketUrl: EnvironmentConstants.dlobServerUrl.mainnet,
+  enableIndicativeOrderbook: false,
+});
+
+SwiftClient.init(
+  EnvironmentConstants.swiftServerUrl.mainnet,
+  'my-app'
+);
+
+console.log('Drift Common package initialized successfully!');
+```
+
+## Browser vs Node.js
+
+The Common package includes browser-specific implementations for certain modules:
+
+### Browser Environment
+
+```typescript
+// Logger uses browser-safe implementation
+import { logger } from '@drift-labs/common';
+
+logger.info('Browser-safe logging');
+```
+
+### Node.js Environment
+
+```typescript
+// Import Redis client (Node.js only)
+import { RedisClient } from '@drift-labs/common/clients';
+
+const redis = new RedisClient({
+  host: 'localhost',
+  port: 6379,
+});
+```
+
+<Warning>
+  Some modules like `RedisClient` are only available in Node.js environments. Check the module documentation before importing server-side specific features.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Client Modules" icon="network-wired" href="/guides/common/clients">
+    Learn how to use client modules for data fetching
+  </Card>
+  <Card title="WebSocket Integration" icon="plug" href="/guides/common/websockets">
+    Set up real-time data streams with WebSockets
+  </Card>
+  <Card title="Utility Functions" icon="wrench" href="/guides/common/utilities">
+    Explore helper functions and utilities
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/utils/overview">
+    View complete API documentation
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Module Not Found Errors
+
+If you encounter module not found errors:
+
+1. Ensure all peer dependencies are installed
+2. Clear your package manager cache
+3. Delete `node_modules` and reinstall
+
+```bash
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### TypeScript Configuration
+
+Ensure your `tsconfig.json` includes:
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  }
+}
+```

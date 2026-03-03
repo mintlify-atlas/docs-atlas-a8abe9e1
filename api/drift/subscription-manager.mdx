@@ -1,0 +1,389 @@
+---
+title: SubscriptionManager
+description: Intelligent subscription optimization for Drift market and user data
+---
+
+## Overview
+
+The `SubscriptionManager` handles all aspects of subscription management for the Drift protocol integration. It automatically optimizes polling frequencies and data fetching based on user positions and the selected trade market, ensuring efficient resource usage while maintaining accurate real-time data.
+
+## Key Responsibilities
+
+- User account subscription and event handling
+- Market account and oracle polling optimization
+- DLOB server polling configuration
+- Orderbook websocket subscription management
+- Authority (wallet) management with full resubscription
+
+## Constructor
+
+```typescript
+const manager = new SubscriptionManager(
+  driftClient,
+  accountLoader,
+  pollingDlob,
+  orderbookManager,
+  userAccountCache,
+  tradableMarkets,
+  selectedTradeMarket
+);
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/SubscriptionManager.ts:47`
+
+**Note:** This class is typically instantiated internally by `AuthorityDrift` and not used directly.
+
+## Market Categorization
+
+### categorizeMarketsByUserInvolvement()
+
+Categorizes markets based on whether the user has active positions.
+
+```typescript
+const { userInvolvedMarkets, userNotInvolvedMarkets } = 
+  manager.categorizeMarketsByUserInvolvement(users);
+
+console.log('User-involved:', userInvolvedMarkets);
+console.log('User-not-involved:', userNotInvolvedMarkets);
+```
+
+**Logic:**
+- A market is "user-involved" if any user has an active perp or spot position in that market
+- All other tradable markets are "user-not-involved"
+
+Source: `src/drift/Drift/clients/AuthorityDrift/SubscriptionManager.ts:97`
+
+## Polling Optimization
+
+### Polling Cadences
+
+The manager uses three tiers of polling frequencies:
+
+```typescript
+// From constants/blockchain.ts
+const SELECTED_MARKET_ACCOUNT_POLLING_CADENCE = 1000;      // 1 second
+const USER_INVOLVED_MARKET_ACCOUNT_POLLING_CADENCE = 2000; // 2 seconds
+const USER_NOT_INVOLVED_MARKET_ACCOUNT_POLLING_CADENCE = 5000; // 5 seconds
+```
+
+### updateMarketAccountCadence()
+
+Updates the polling frequency for a market and its oracle.
+
+```typescript
+manager.updateMarketAccountCadence(
+  MarketId.createPerpMarket(0),
+  1000 // Poll every 1 second
+);
+```
+
+**What it does:**
+1. Updates the market account polling cadence
+2. Updates the associated oracle account polling cadence
+3. Only updates if cadence has changed (optimization)
+
+Source: `src/drift/Drift/clients/AuthorityDrift/SubscriptionManager.ts:138`
+
+### updateAccountLoaderCadenceForMarkets()
+
+Applies polling cadences to multiple markets based on categorization.
+
+```typescript
+// Internal method - called automatically
+manager.updateAccountLoaderCadenceForMarkets(
+  userInvolvedMarkets,
+  userNotInvolvedMarkets,
+  selectedTradeMarket
+);
+```
+
+**Priority levels:**
+1. Selected trade market: 1s polling (highest priority)
+2. User-involved markets: 2s polling (medium priority)
+3. User-not-involved markets: 5s polling (lowest priority)
+
+Source: `src/drift/Drift/clients/AuthorityDrift/SubscriptionManager.ts:181`
+
+## DLOB Polling Management
+
+### updatePollingDlobIntervals()
+
+Configures DLOB server polling intervals for price data.
+
+```typescript
+// Internal method
+manager.updatePollingDlobIntervals(
+  userInvolvedMarketKeys,
+  userNotInvolvedMarketKeys
+);
+```
+
+**Interval configuration:**
+- User-involved markets: Deep polling every 3 seconds
+- User-not-involved markets: Shallow polling every 30 seconds
+- Selected trade market: Real-time via websocket (not polled)
+
+Source: `src/drift/Drift/clients/AuthorityDrift/SubscriptionManager.ts:215`
+
+## User Account Management
+
+### subscribeToAllUsersUpdates()
+
+Sets up event listeners for all user accounts.
+
+```typescript
+manager.subscribeToAllUsersUpdates();
+```
+
+**What it does:**
+1. Gets all user accounts from DriftClient
+2. Initial hydration of user account cache
+3. Sets up 'update' event listeners on each user
+4. Triggers subscription optimization on each update
+
+Source: `src/drift/Drift/clients/AuthorityDrift/SubscriptionManager.ts:74`
+
+### handleSubscriptionUpdatesOnUserUpdates()
+
+Main orchestration method triggered on user account updates.
+
+```typescript
+// Called automatically on user updates
+manager.handleSubscriptionUpdatesOnUserUpdates(users);
+```
+
+**Process:**
+1. Categorizes markets by user involvement
+2. Filters out selected trade market from other categories
+3. Updates account loader cadences
+4. Updates DLOB polling intervals
+
+Source: `src/drift/Drift/clients/AuthorityDrift/SubscriptionManager.ts:242`
+
+### subscribeToNonWhitelistedButUserInvolvedMarkets()
+
+Ensures markets with user positions are subscribed even if not in tradable markets list.
+
+```typescript
+await manager.subscribeToNonWhitelistedButUserInvolvedMarkets(users);
+```
+
+**Use case:** User has positions in markets that weren't initially included in the configuration.
+
+**Process:**
+1. Collects all markets with user positions
+2. Adds them to DriftClient subscription lists
+3. Resubscribes to account subscriber with updated market list
+
+Source: `src/drift/Drift/clients/AuthorityDrift/SubscriptionManager.ts:276`
+
+## Selected Trade Market
+
+### updateSelectedTradeMarket()
+
+Updates the selected trade market and optimizes all subscriptions.
+
+```typescript
+manager.updateSelectedTradeMarket(
+  MarketId.createPerpMarket(1) // BTC-PERP
+);
+```
+
+**Process:**
+
+1. **Unsubscribe from previous market orderbook**
+   ```typescript
+   orderbookManager.unsubscribe();
+   ```
+
+2. **Downgrade previous market priority**
+   - If user has positions: Move to USER_INVOLVED category
+   - If no positions: Move to USER_NOT_INVOLVED category
+   - Update polling cadence accordingly
+
+3. **Upgrade new market priority**
+   - Remove from DLOB polling intervals (will use websocket)
+   - Set to SELECTED_MARKET polling cadence (1s)
+   - Subscribe orderbook websocket to new market
+
+4. **Subscribe to new market orderbook**
+   ```typescript
+   orderbookManager.updateSubscription({
+     marketId: newMarket,
+     channel: 'orderbook_indicative',
+     grouping: DEFAULT_ORDERBOOK_GROUPING,
+   });
+   ```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/SubscriptionManager.ts:357`
+
+## Authority Management
+
+### updateAuthority()
+
+Switches to a new wallet and reestablishes all subscriptions.
+
+```typescript
+await manager.updateAuthority(newWallet, activeSubAccountId);
+```
+
+**Complete flow:**
+
+1. **Validate change**
+   ```typescript
+   if (driftClient.wallet.publicKey.equals(wallet.publicKey)) {
+     return; // No change needed
+   }
+   ```
+
+2. **Cleanup old state**
+   ```typescript
+   await Promise.all(driftClient.unsubscribeUsers());
+   userAccountCache.reset();
+   ```
+
+3. **Update wallet**
+   ```typescript
+   const success = await driftClient.updateWallet(
+     wallet,
+     undefined,
+     activeSubAccountId,
+     true,
+     undefined
+   );
+   ```
+
+4. **Resubscribe to markets**
+   ```typescript
+   await subscribeToNonWhitelistedButUserInvolvedMarkets(
+     driftClient.getUsers()
+   );
+   ```
+
+5. **Switch sub-account** (if specified)
+   ```typescript
+   if (activeSubAccountId) {
+     await driftClient.switchActiveUser(activeSubAccountId);
+   }
+   ```
+
+6. **Reestablish user subscriptions**
+   ```typescript
+   subscribeToAllUsersUpdates();
+   ```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/SubscriptionManager.ts:425`
+
+## Configuration Updates
+
+### updateTradableMarkets()
+
+Updates the list of tradable markets.
+
+```typescript
+manager.updateTradableMarkets([
+  MarketId.createPerpMarket(0),
+  MarketId.createPerpMarket(1),
+  MarketId.createSpotMarket(0),
+]);
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/SubscriptionManager.ts:62`
+
+## Polling Categories
+
+The manager uses three polling categories:
+
+```typescript
+export enum PollingCategory {
+  SELECTED_MARKET = 'selected-market',
+  USER_INVOLVED = 'user-involved',
+  USER_NOT_INVOLVED = 'user-not-involved',
+}
+```
+
+### Category Characteristics
+
+| Category | RPC Polling | DLOB Polling | Use Case |
+|----------|-------------|--------------|----------|
+| SELECTED_MARKET | 1s | Websocket | Active trading |
+| USER_INVOLVED | 2s | 3s (deep) | Position monitoring |
+| USER_NOT_INVOLVED | 5s | 30s (shallow) | Background data |
+
+## Example: Manual Optimization
+
+While typically managed by `AuthorityDrift`, you can understand the optimization flow:
+
+```typescript
+import { SubscriptionManager, PollingCategory } from '@drift/common';
+
+// Initialize (normally done by AuthorityDrift)
+const manager = new SubscriptionManager(
+  driftClient,
+  accountLoader,
+  pollingDlob,
+  orderbookManager,
+  userAccountCache,
+  tradableMarkets,
+  selectedTradeMarket
+);
+
+// Subscribe to all users
+manager.subscribeToAllUsersUpdates();
+
+// When user opens a position in a new market
+// The manager automatically:
+// 1. Detects position change via event listener
+// 2. Recategorizes markets
+// 3. Upgrades new market to USER_INVOLVED
+// 4. Increases polling frequency to 2s
+// 5. Adds to deep DLOB polling (3s interval)
+
+// When user switches active trading market
+manager.updateSelectedTradeMarket(
+  MarketId.createPerpMarket(2) // ETH-PERP
+);
+// Automatically:
+// 1. Downgrades previous market
+// 2. Upgrades ETH-PERP to 1s polling
+// 3. Switches orderbook websocket to ETH-PERP
+
+// When switching wallets
+await manager.updateAuthority(newWallet);
+// Automatically:
+// 1. Unsubscribes all old users
+// 2. Clears cache
+// 3. Loads new wallet's users
+// 4. Reoptimizes based on new positions
+```
+
+## Performance Considerations
+
+### RPC Load
+
+Polling frequency directly affects RPC requests:
+- Selected market: ~60 requests/minute (1s interval)
+- User-involved markets: ~30 requests/minute each (2s interval)
+- Other markets: ~12 requests/minute each (5s interval)
+
+### Optimization Tips
+
+1. **Limit tradable markets**: Only include markets you need
+   ```typescript
+   tradableMarkets: [
+     MarketId.createPerpMarket(0), // SOL only
+   ]
+   ```
+
+2. **Use selected market wisely**: Only set for active trading
+   ```typescript
+   selectedTradeMarket: currentlyTradingMarket || null
+   ```
+
+3. **Monitor user positions**: The manager automatically optimizes based on actual usage
+
+## See Also
+
+- [AuthorityDrift](/api/drift/authority-drift) - Main client using SubscriptionManager
+- [PollingDlob](/api/drift/overview#architecture) - DLOB polling system
+- [Orderbook Management](/api/drift/orderbook) - WebSocket orderbook manager

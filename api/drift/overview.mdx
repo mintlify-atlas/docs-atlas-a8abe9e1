@@ -1,0 +1,144 @@
+---
+title: Drift Protocol Overview
+description: Integration with Drift Protocol for decentralized perpetual and spot trading
+---
+
+## Overview
+
+The Drift Protocol integration provides comprehensive access to Drift's decentralized perpetual and spot trading platform on Solana. The integration offers two primary client types optimized for different use cases:
+
+- **AuthorityDrift**: Full-featured client for trading applications with real-time subscriptions
+- **CentralServerDrift**: Lightweight client for API servers that fetch data on-demand
+
+## Key Features
+
+### Real-time Data Subscriptions
+
+- User account updates with position and balance tracking
+- Market data including mark prices and oracle prices
+- Orderbook data via websocket connections
+- Optimized polling based on user involvement
+
+### Trading Operations
+
+- Perpetual market and limit orders
+- Spot market deposits and withdrawals
+- Token swaps via Jupiter integration
+- Position management (settle PnL, funding)
+- Order management (create, edit, cancel)
+
+### Smart Subscription Management
+
+The integration automatically optimizes data fetching based on:
+- **Selected market**: Highest priority polling for active trading
+- **User-involved markets**: Medium priority for markets with positions
+- **Other markets**: Low priority background polling
+
+## Architecture
+
+### Data Sources
+
+1. **Solana RPC**: Direct on-chain account data via polling
+2. **DLOB Server (HTTP)**: Mark prices and oracle data for background markets
+3. **DLOB Server (WebSocket)**: Real-time orderbook data for selected market
+4. **Swift Server**: Fast order execution service
+
+### Core Components
+
+- **DriftClient**: Core SDK client for Drift program interactions
+- **SubscriptionManager**: Optimizes polling frequencies and market subscriptions
+- **PollingDlob**: Manages DLOB server polling for price data
+- **DriftL2OrderbookManager**: WebSocket orderbook subscriptions
+- **DriftOperations**: Trading operation handlers
+
+## Client Comparison
+
+| Feature | AuthorityDrift | CentralServerDrift |
+|---------|----------------|--------------------|
+| Use Case | Trading UIs, wallets | API servers |
+| User Subscriptions | Continuous | On-demand |
+| Market Subscriptions | Continuous | Continuous |
+| Wallet Management | Full authority | Per-transaction |
+| Orderbook WebSocket | Yes | No |
+| Memory Footprint | Higher | Lower |
+
+## Quick Start
+
+### AuthorityDrift Example
+
+```typescript
+import { AuthorityDrift } from '@drift/common';
+import { MarketId } from '@drift/common';
+
+const client = new AuthorityDrift({
+  solanaRpcEndpoint: 'https://api.mainnet-beta.solana.com',
+  driftEnv: 'mainnet-beta',
+  wallet: myWallet,
+  selectedTradeMarket: MarketId.createPerpMarket(0), // SOL-PERP
+});
+
+await client.subscribe();
+
+// Listen to user account updates
+client.onUserAccountUpdate((account) => {
+  console.log('User account updated:', account);
+});
+
+// Listen to mark price updates
+client.onMarkPricesUpdate((prices) => {
+  console.log('Mark prices updated:', prices);
+});
+```
+
+### CentralServerDrift Example
+
+```typescript
+import { CentralServerDrift } from '@drift/common';
+
+const server = new CentralServerDrift({
+  solanaRpcEndpoint: 'https://api.mainnet-beta.solana.com',
+  driftEnv: 'mainnet-beta',
+  supportedPerpMarkets: [0, 1, 2], // SOL, BTC, ETH
+  supportedSpotMarkets: [0, 1], // USDC, SOL
+});
+
+await server.subscribe();
+
+// Fetch user on-demand
+const user = await server.getUser(userAccountPublicKey);
+
+// Generate transactions
+const depositTxn = await server.getDepositTxn(
+  userAccountPublicKey,
+  amount,
+  spotMarketIndex
+);
+```
+
+## Environment Configuration
+
+```typescript
+type DriftEnv = 'mainnet-beta' | 'devnet';
+
+interface Endpoints {
+  dlobServerHttpUrl: string;    // DLOB HTTP endpoint
+  swiftServerUrl: string;       // Swift order service
+  orderbookWebsocketUrl: string; // DLOB WebSocket endpoint
+}
+```
+
+## Next Steps
+
+- [AuthorityDrift Client](/api/drift/authority-drift) - Full trading client
+- [CentralServerDrift Client](/api/drift/central-server-drift) - API server client
+- [SubscriptionManager](/api/drift/subscription-manager) - Subscription optimization
+- [Orderbook Management](/api/drift/orderbook) - Real-time orderbook data
+
+## Source Code
+
+Location: `~/workspace/source/common-ts/src/drift/Drift/`
+
+- Clients: `clients/`
+- Data management: `data/`
+- Stores and caches: `stores/`
+- Constants: `constants/`

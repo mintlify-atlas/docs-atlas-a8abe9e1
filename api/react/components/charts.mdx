@@ -1,0 +1,167 @@
+---
+title: Chart Components
+description: Chart visualization components for data visualization
+---
+
+## Overview
+
+Chart components provide visual elements designed to work with charting libraries like Recharts for creating interactive data visualizations.
+
+## Components
+
+### ActiveDot
+
+An animated SVG component that renders an active data point indicator on charts. Features a scale animation on mount and customizable appearance.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `x` | `number` | - | **Required.** X-coordinate position |
+| `y` | `number` | - | **Required.** Y-coordinate position |
+| `stroke` | `string` | - | **Required.** Stroke color |
+| `size` | `number` | `32` | Total size of the SVG (width and height) |
+| `strokeWidth` | `number` | `8` | Width of the circle stroke |
+| `fill` | `string` | - | Fill color for the circle |
+| `className` | `string` | - | Custom CSS classes for the SVG element |
+
+**Features:**
+
+- Animated scale effect on mount via CSS animation
+- Automatically centers the dot at the specified coordinates
+- Client-side component (uses 'use client' directive)
+- Customizable size and stroke properties
+
+**Example:**
+
+```tsx
+import { ActiveDot } from '@drift/common/react';
+import { LineChart, Line } from 'recharts';
+
+function Chart({ data }) {
+  return (
+    <LineChart data={data}>
+      <Line 
+        type="monotone" 
+        dataKey="value"
+        stroke="#8884d8"
+        activeDot={
+          <ActiveDot 
+            stroke="#8884d8" 
+            fill="white"
+            size={40}
+            strokeWidth={10}
+          />
+        }
+      />
+    </LineChart>
+  );
+}
+```
+
+**With Recharts Integration:**
+
+```tsx
+import { ActiveDot } from '@drift/common/react';
+import { AreaChart, Area } from 'recharts';
+
+function CustomChart({ data }) {
+  return (
+    <AreaChart data={data}>
+      <Area
+        type="monotone"
+        dataKey="value"
+        stroke="#82ca9d"
+        fill="#82ca9d"
+        activeDot={(props) => (
+          <ActiveDot
+            x={props.cx}
+            y={props.cy}
+            stroke="#82ca9d"
+            fill="#ffffff"
+            size={36}
+            strokeWidth={6}
+          />
+        )}
+      />
+    </AreaChart>
+  );
+}
+```
+
+**Custom Styling:**
+
+```tsx
+<ActiveDot
+  x={100}
+  y={50}
+  stroke="#ff6b6b"
+  fill="rgba(255, 107, 107, 0.2)"
+  size={48}
+  strokeWidth={12}
+  className="opacity-90 hover:opacity-100"
+/>
+```
+
+**Source:** ~/workspace/source/react/src/components/Charts/ActiveDot.tsx:5
+
+## Animation
+
+The `ActiveDot` component includes a built-in scale animation that triggers when the component mounts. The animation is defined via the `animate-active-dot` CSS class.
+
+The component uses a ref to apply the transform style after mount:
+
+```tsx
+const circleRef = useRef<SVGCircleElement>(null);
+
+useEffect(() => {
+  if (circleRef.current) {
+    circleRef.current.style.transform = 'scale(1)';
+  }
+}, []);
+```
+
+## Positioning
+
+The component automatically calculates the proper SVG positioning based on the `x`, `y`, and `size` props:
+
+- SVG is positioned at `x - radius` and `y - radius` to center the dot
+- Circle radius accounts for stroke width: `radius - strokeWidth / 2`
+- ViewBox is set to match the size for proper scaling
+
+## Use Cases
+
+- Active data point indicators in line charts
+- Hover state indicators in area charts
+- Interactive tooltips on scatter plots
+- Current value markers in time series visualizations
+
+## Styling
+
+The component accepts a `className` prop for custom styling. The SVG and circle elements can be targeted:
+
+```css
+/* Custom animation */
+@keyframes active-dot {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-active-dot {
+  animation: active-dot 0.3s ease-out;
+}
+```
+
+## Related Components
+
+For complete chart solutions, combine with:
+
+- Recharts library components (LineChart, AreaChart, etc.)
+- Table components for data display
+- Loader components for async data states

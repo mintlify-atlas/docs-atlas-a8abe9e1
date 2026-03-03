@@ -1,0 +1,238 @@
+---
+title: "Priority Fee Hooks"
+description: "React hooks for managing transaction priority fees on Solana"
+---
+
+## usePriorityFeeSubscriber
+
+Subscribes to priority fee updates from the Solana network. This hook creates and manages a `PriorityFeeSubscriber` that monitors recent transaction fees to help determine appropriate priority fees for transactions.
+
+### Signature
+
+```typescript
+function usePriorityFeeSubscriber(
+  priorityFeeStrategy: PriorityFeeStrategy,
+  priorityFeeSubscriptionAddresses?: PublicKey[]
+): React.MutableRefObject<PriorityFeeSubscriber | null>
+```
+
+### Parameters
+
+<ParamField path="priorityFeeStrategy" type="PriorityFeeStrategy" required>
+  The strategy to use for calculating priority fees. This determines how fees are computed from recent transaction data.
+</ParamField>
+
+<ParamField path="priorityFeeSubscriptionAddresses" type="PublicKey[]" optional>
+  Optional array of addresses to monitor for priority fee data. Defaults to `PRIORITY_FEE_SUBSCRIPTION_ADDRESSES` constant.
+</ParamField>
+
+### Returns
+
+A React ref containing the `PriorityFeeSubscriber` instance, or `null` if not yet initialized.
+
+### Example
+
+```tsx
+import { usePriorityFeeSubscriber } from '@drift/react';
+import { PriorityFeeStrategy } from '@drift-labs/sdk';
+
+function PriorityFeeManager() {
+  const customStrategy: PriorityFeeStrategy = {
+    calculate: (recentFees) => {
+      // Custom logic to calculate priority fee
+      const avgFee = recentFees.reduce((a, b) => a + b, 0) / recentFees.length;
+      return Math.ceil(avgFee * 1.2); // 20% above average
+    },
+  };
+
+  const subscriberRef = usePriorityFeeSubscriber(customStrategy);
+
+  useEffect(() => {
+    if (subscriberRef.current) {
+      console.log('Priority fee subscriber ready');
+    }
+  }, [subscriberRef.current]);
+
+  return <div>Priority fees are being monitored</div>;
+}
+```
+
+### Implementation Details
+
+- Uses `usePriorityFeesPollingRate()` to determine the update frequency
+- Monitors the last `FEE_SUBSCRIPTION_SLOT_LOOKBACK` slots for fee data
+- Automatically subscribes on mount and unsubscribes on unmount
+- Re-initializes when connection, polling rate, or strategy changes
+
+### Source
+
+`source/react/src/hooks/priorityFees/usePriorityFeeSubscriber.ts:29`
+
+---
+
+## usePriorityFeeUserSettings
+
+Manages user preferences for priority fees, persisting settings to local storage. This is a singleton hook, meaning all instances share the same state.
+
+### Signature
+
+```typescript
+function usePriorityFeeUserSettings(): {
+  priorityFeeSettings: UserPriorityFeeSettings;
+  setPriorityFeeSettings: (settings: UserPriorityFeeSettings) => void;
+}
+```
+
+### Returns
+
+An object containing:
+
+<ResponseField name="priorityFeeSettings" type="UserPriorityFeeSettings">
+  The current user priority fee settings:
+  - `userPriorityFeeType`: `'dynamic' | 'custom'` - The fee type selected by the user
+  - `userCustomMaxPriorityFeeCap`: `number` - Maximum priority fee cap in SOL (default: 0.01)
+  - `userCustomPriorityFee`: `number | null` - Custom priority fee value in SOL, or `null` for dynamic
+</ResponseField>
+
+<ResponseField name="setPriorityFeeSettings" type="(settings: UserPriorityFeeSettings) => void">
+  Function to update the priority fee settings. Changes are automatically persisted to local storage.
+</ResponseField>
+
+### Default Settings
+
+```typescript
+{
+  userPriorityFeeType: 'dynamic',
+  userCustomMaxPriorityFeeCap: 0.01,
+  userCustomPriorityFee: null
+}
+```
+
+### Example
+
+```tsx
+import { usePriorityFeeUserSettings } from '@drift/react';
+
+function PriorityFeeSettings() {
+  const { priorityFeeSettings, setPriorityFeeSettings } = 
+    usePriorityFeeUserSettings();
+
+  const handleFeeTypeChange = (type: 'dynamic' | 'custom') => {
+    setPriorityFeeSettings({
+      ...priorityFeeSettings,
+      userPriorityFeeType: type,
+    });
+  };
+
+  const handleCustomFeeChange = (fee: number) => {
+    setPriorityFeeSettings({
+      ...priorityFeeSettings,
+      userCustomPriorityFee: fee,
+    });
+  };
+
+  return (
+    <div>
+      <h3>Priority Fee Settings</h3>
+      
+      <label>
+        <input
+          type="radio"
+          checked={priorityFeeSettings.userPriorityFeeType === 'dynamic'}
+          onChange={() => handleFeeTypeChange('dynamic')}
+        />
+        Dynamic (Automatic)
+      </label>
+
+      <label>
+        <input
+          type="radio"
+          checked={priorityFeeSettings.userPriorityFeeType === 'custom'}
+          onChange={() => handleFeeTypeChange('custom')}
+        />
+        Custom
+      </label>
+
+      {priorityFeeSettings.userPriorityFeeType === 'custom' && (
+        <input
+          type="number"
+          value={priorityFeeSettings.userCustomPriorityFee ?? 0.001}
+          onChange={(e) => handleCustomFeeChange(parseFloat(e.target.value))}
+          step="0.0001"
+          placeholder="Custom fee (SOL)"
+        />
+      )}
+
+      <div>
+        Max Fee Cap: {priorityFeeSettings.userCustomMaxPriorityFeeCap} SOL
+      </div>
+    </div>
+  );
+}
+```
+
+### Notes
+
+<Info>
+  This is a **singleton hook** using `react-singleton-hook`. All components using this hook will share the same state and see the same values.
+</Info>
+
+### Source
+
+`source/react/src/hooks/priorityFees/usePriorityFeeUserSettings.ts:17`
+
+---
+
+## usePriorityFeesPollingRate
+
+Calculates the appropriate polling rate for priority fee updates based on the base polling rate and various multipliers.
+
+### Signature
+
+```typescript
+function usePriorityFeesPollingRate(): number
+```
+
+### Returns
+
+`number` - The polling frequency in milliseconds.
+
+### Behavior
+
+- **Before priority fee store is ready**: Returns `1000` ms (polls every second for faster initial load)
+- **After store is ready**: Returns `basePollingRateMs * max(pollingMultiplier, priorityFeePollingMultiplier)`
+
+### Example
+
+```tsx
+import { usePriorityFeesPollingRate } from '@drift/react';
+import { useEffect } from 'react';
+
+function PriorityFeeMonitor() {
+  const pollingRate = usePriorityFeesPollingRate();
+
+  useEffect(() => {
+    console.log(`Priority fees polling every ${pollingRate}ms`);
+  }, [pollingRate]);
+
+  return (
+    <div>
+      Update frequency: {pollingRate / 1000}s
+    </div>
+  );
+}
+```
+
+### Implementation Details
+
+The polling rate is calculated from three store values:
+
+1. `basePollingRateMs` - Base polling rate from environment config
+2. `pollingMultiplier` - Global polling multiplier (e.g., increases when app is idle)
+3. `priorityFeePollingMultiplier` - Priority fee specific multiplier from environment
+
+The hook uses the maximum of the two multipliers to ensure priority fees are polled at an appropriate rate even when the global polling is slowed down.
+
+### Source
+
+`source/react/src/hooks/priorityFees/usePriorityFeesPollingRate.ts:3`

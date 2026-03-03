@@ -1,0 +1,474 @@
+---
+title: AuthorityDrift
+description: Full-featured Drift client for trading applications with real-time subscriptions
+---
+
+## Overview
+
+The `AuthorityDrift` client provides comprehensive access to Drift Protocol for trading applications. It maintains continuous subscriptions to all user accounts under a given authority (wallet) and optimizes market data fetching based on user positions and the selected trade market.
+
+## Constructor
+
+```typescript
+const client = new AuthorityDrift(config: AuthorityDriftConfig);
+```
+
+### Configuration
+
+```typescript
+interface AuthorityDriftConfig {
+  solanaRpcEndpoint: string;
+  driftEnv: DriftEnv;
+  wallet?: IWalletV2;
+  driftDlobServerHttpUrl?: string;
+  tradableMarkets?: MarketId[];
+  selectedTradeMarket?: MarketId;
+  additionalDriftClientConfig?: Partial<Omit<DriftClientConfig, 'env'>>;
+  priorityFeeSubscriberConfig?: Partial<PriorityFeeSubscriberConfig>;
+  orderbookConfig?: {
+    dlobWebSocketUrl?: string;
+    orderbookGrouping?: OrderbookGrouping;
+  };
+}
+```
+
+#### Parameters
+
+- **solanaRpcEndpoint**: Solana RPC endpoint URL
+- **driftEnv**: Environment (`'mainnet-beta'` or `'devnet'`)
+- **wallet**: User's wallet (optional, uses placeholder if not provided)
+- **driftDlobServerHttpUrl**: Custom DLOB server URL (optional)
+- **tradableMarkets**: Markets to subscribe to (defaults to all markets)
+- **selectedTradeMarket**: Market to prioritize for trading (optional)
+- **additionalDriftClientConfig**: Additional DriftClient configuration
+- **priorityFeeSubscriberConfig**: Priority fee configuration
+- **orderbookConfig**: Orderbook subscription settings
+
+## Lifecycle Methods
+
+### subscribe()
+
+Initializes all subscriptions and starts data fetching.
+
+```typescript
+await client.subscribe();
+```
+
+**Process:**
+1. Subscribes to DriftClient (market accounts, oracle accounts)
+2. Filters out delisted markets
+3. Starts DLOB polling for mark prices
+4. Establishes orderbook websocket connection
+5. Subscribes to priority fee updates
+6. Checks geo-blocking status
+7. Sets up user account event listeners
+
+### unsubscribe()
+
+Cleans up all subscriptions and releases resources.
+
+```typescript
+await client.unsubscribe();
+```
+
+## Properties
+
+### driftClient
+
+```typescript
+get driftClient(): DriftClient
+```
+
+Access to the underlying DriftClient instance.
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:302`
+
+### authority
+
+```typescript
+get authority(): PublicKey
+```
+
+The wallet's public key.
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:306`
+
+### tradableMarkets
+
+```typescript
+get tradableMarkets(): MarketId[]
+```
+
+Array of markets available for trading.
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:334`
+
+### oraclePriceCache
+
+```typescript
+get oraclePriceCache(): OraclePriceLookup
+```
+
+Lookup object for oracle prices by market key.
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:314`
+
+### markPriceCache
+
+```typescript
+get markPriceCache(): MarkPriceLookup
+```
+
+Lookup object for mark prices by market key.
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:318`
+
+### userAccountCache
+
+```typescript
+get userAccountCache(): UserAccountLookup
+```
+
+Lookup object for user account data by sub-account ID.
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:322`
+
+### orderbookCache
+
+```typescript
+get orderbookCache(): L2WithOracleAndMarketData | null
+```
+
+Current orderbook data for the selected trade market.
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:326`
+
+### isGeoBlocked
+
+```typescript
+get isGeoBlocked(): boolean
+```
+
+Whether the user is geographically blocked from trading.
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:343`
+
+## Event Subscriptions
+
+### onUserAccountUpdate()
+
+Subscribe to user account updates.
+
+```typescript
+const subscription = client.onUserAccountUpdate((account) => {
+  console.log('Sub-account:', account.subAccountId);
+  console.log('Positions:', account.positions);
+  console.log('Balances:', account.balances);
+});
+
+// Cleanup
+subscription.unsubscribe();
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:713`
+
+### onMarkPricesUpdate()
+
+Subscribe to mark price updates.
+
+```typescript
+const subscription = client.onMarkPricesUpdate((prices) => {
+  const solPerpPrice = prices['perp-0'];
+  console.log('SOL-PERP mark price:', solPerpPrice);
+});
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:709`
+
+### onOraclePricesUpdate()
+
+Subscribe to oracle price updates.
+
+```typescript
+const subscription = client.onOraclePricesUpdate((prices) => {
+  const solPrice = prices['perp-0'];
+  console.log('SOL oracle price:', solPrice.price);
+  console.log('Confidence:', solPrice.confidence);
+});
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:703`
+
+### onOrderbookUpdate()
+
+Subscribe to orderbook updates for the selected trade market.
+
+```typescript
+const subscription = client.onOrderbookUpdate((orderbook) => {
+  console.log('Bids:', orderbook.bids);
+  console.log('Asks:', orderbook.asks);
+  console.log('Best bid:', orderbook.bestBidPrice);
+  console.log('Best ask:', orderbook.bestAskPrice);
+});
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:719`
+
+## Trading Operations
+
+### createUserAndDeposit()
+
+Creates a new user account and deposits initial collateral.
+
+```typescript
+const result = await client.createUserAndDeposit({
+  depositAmount: BigNum.from(100, 6), // 100 USDC
+  depositSpotMarketIndex: 0,
+  newAccountName: 'Main Account',
+  referrerName: 'my-referrer',
+});
+
+console.log('Transaction:', result.txSig);
+console.log('User:', result.user);
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:764`
+
+### deposit()
+
+Deposits collateral into a user's spot market position.
+
+```typescript
+await client.deposit({
+  subAccountId: 0,
+  amount: BigNum.from(50, 6), // 50 USDC
+  spotMarketIndex: 0,
+});
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:791`
+
+### withdraw()
+
+Withdraws collateral from a user's spot market position.
+
+```typescript
+await client.withdraw({
+  subAccountId: 0,
+  amount: BigNum.from(25, 6), // 25 USDC
+  spotMarketIndex: 0,
+  isBorrow: false,
+  isMax: false,
+});
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:801`
+
+### openPerpOrder()
+
+Opens a perpetual market order.
+
+```typescript
+// Market order
+await client.openPerpOrder({
+  subAccountId: 0,
+  marketIndex: 0, // SOL-PERP
+  direction: PositionDirection.LONG,
+  assetType: 'base',
+  size: BigNum.from(10, 9), // 10 SOL
+  positionMaxLeverage: 5,
+  orderConfig: {
+    orderType: 'market',
+  },
+});
+
+// Limit order
+await client.openPerpOrder({
+  subAccountId: 0,
+  marketIndex: 0,
+  direction: PositionDirection.LONG,
+  assetType: 'base',
+  size: BigNum.from(10, 9),
+  positionMaxLeverage: 5,
+  orderConfig: {
+    orderType: 'limit',
+    limitPrice: BigNum.from(100, 6),
+  },
+});
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:811`
+
+**Note:** This method is geo-blocked and will throw `GeoBlockError` if the user is blocked.
+
+### swap()
+
+Executes a swap between two spot markets using Jupiter.
+
+```typescript
+const quote = await client.getSwapQuote({
+  fromMarketIndex: 1, // SOL
+  toMarketIndex: 0,   // USDC
+  amount: BigNum.from(1, 9), // 1 SOL
+  subAccountId: 0,
+  slippageBps: 50, // 0.5%
+});
+
+await client.swap({
+  fromMarketIndex: 1,
+  toMarketIndex: 0,
+  amount: BigNum.from(1, 9),
+  subAccountId: 0,
+  quote,
+});
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:824`
+
+### settleAccountPnl()
+
+Settles profit and loss for perpetual positions.
+
+```typescript
+await client.settleAccountPnl({
+  subAccountId: 0,
+});
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:844`
+
+### cancelOrders()
+
+Cancels a list of open orders.
+
+```typescript
+await client.cancelOrders({
+  subAccountId: 0,
+  orderIds: [1, 2, 3],
+});
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:866`
+
+### deleteUser()
+
+Deletes a user account.
+
+```typescript
+await client.deleteUser(0); // Delete sub-account 0
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:856`
+
+## Market Management
+
+### updateSelectedTradeMarket()
+
+Updates the selected trade market and optimizes subscriptions.
+
+```typescript
+const btcPerp = MarketId.createPerpMarket(1);
+client.updateSelectedTradeMarket(btcPerp);
+```
+
+**Effect:**
+- Updates orderbook websocket subscription to new market
+- Adjusts polling cadences (old market downgraded, new market prioritized)
+- Updates DLOB polling intervals
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:740`
+
+### updateAuthority()
+
+Updates the wallet authority and reestablishes subscriptions.
+
+```typescript
+await client.updateAuthority(newWallet, activeSubAccountId);
+```
+
+**Process:**
+1. Unsubscribes from current user accounts
+2. Resets user account cache
+3. Updates DriftClient with new wallet
+4. Resubscribes to all markets
+5. Switches to specified sub-account
+6. Reestablishes event listeners
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:731`
+
+## Priority Fees
+
+### getTxParams()
+
+Gets transaction parameters with dynamic priority fees.
+
+```typescript
+const txParams = client.getTxParams({
+  computeUnits: 200_000,
+});
+
+console.log('Priority fee:', txParams.computeUnitsPrice);
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/index.ts:872`
+
+## Example: Complete Trading Flow
+
+```typescript
+import { AuthorityDrift, MarketId, PositionDirection, BigNum } from '@drift/common';
+
+// Initialize client
+const client = new AuthorityDrift({
+  solanaRpcEndpoint: process.env.RPC_URL,
+  driftEnv: 'mainnet-beta',
+  wallet: myWallet,
+  selectedTradeMarket: MarketId.createPerpMarket(0),
+});
+
+// Subscribe
+await client.subscribe();
+
+// Listen to updates
+client.onUserAccountUpdate((account) => {
+  console.log('Account updated:', account.subAccountId);
+});
+
+client.onMarkPricesUpdate((prices) => {
+  const solPrice = prices['perp-0'];
+  console.log('SOL price:', solPrice);
+});
+
+// Check if user has account
+const hasAccount = Object.keys(client.userAccountCache).length > 0;
+
+if (!hasAccount) {
+  // Create account and deposit
+  await client.createUserAndDeposit({
+    depositAmount: BigNum.from(1000, 6), // 1000 USDC
+    depositSpotMarketIndex: 0,
+    newAccountName: 'Trading',
+  });
+}
+
+// Open position
+await client.openPerpOrder({
+  subAccountId: 0,
+  marketIndex: 0,
+  direction: PositionDirection.LONG,
+  assetType: 'base',
+  size: BigNum.from(1, 9), // 1 SOL
+  positionMaxLeverage: 3,
+  orderConfig: {
+    orderType: 'market',
+  },
+});
+
+// Cleanup
+await client.unsubscribe();
+```
+
+## See Also
+
+- [CentralServerDrift](/api/drift/central-server-drift) - API server client
+- [SubscriptionManager](/api/drift/subscription-manager) - Subscription optimization details
+- [Orderbook Management](/api/drift/orderbook) - Orderbook websocket manager

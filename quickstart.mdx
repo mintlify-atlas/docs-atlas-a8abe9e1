@@ -1,80 +1,396 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quick Start"
+description: "Get up and running with Drift Common packages in minutes"
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through setting up a basic Drift application using both the core utilities and React components.
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Install Dependencies">
+    First, install the required packages and their peer dependencies:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```bash
+    npm install @drift-labs/common @drift-labs/react @drift-labs/sdk @solana/web3.js react react-dom
+    ```
 
-### Step 2: Deploy your changes
+    See the [Installation](/installation) page for detailed instructions.
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+  <Step title="Initialize the SDK">
+    Initialize the Drift SDK configuration for your target environment:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```typescript
+    import { Initialize } from '@drift-labs/common';
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    // Initialize for mainnet
+    const sdkConfig = Initialize('mainnet-beta');
 
-### Step 3: Go live
+    // Or for devnet
+    // const sdkConfig = Initialize('devnet');
+    ```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    The `Initialize` function sets up market configurations and returns the SDK config object. This must be called before using other Drift utilities.
+  </Step>
 
-## Next steps
+  <Step title="Use Environment Constants">
+    Access RPC endpoints and server URLs for different environments:
 
-Now that you have your docs running, explore these key features:
+    ```typescript
+    import { EnvironmentConstants } from '@drift-labs/common';
+
+    // Get mainnet RPC endpoints
+    const mainnetRpcs = EnvironmentConstants.rpcs.mainnet;
+    console.log(mainnetRpcs[0].value); // RPC URL
+    console.log(mainnetRpcs[0].wsValue); // WebSocket URL
+
+    // Get server URLs
+    const dlobUrl = EnvironmentConstants.dlobServerHttpUrl.mainnet;
+    const dataUrl = EnvironmentConstants.dataServerUrl.mainnet;
+    ```
+  </Step>
+
+  <Step title="Use Core Utilities">
+    Leverage the utility functions from `@drift-labs/common`:
+
+    ```typescript
+    import { 
+      getTokenAddress,
+      getTokenAddressForDepositAndWithdraw,
+      COMMON_MATH 
+    } from '@drift-labs/common';
+    import { PublicKey } from '@solana/web3.js';
+    import { WRAPPED_SOL_MINT } from '@drift-labs/sdk';
+
+    // Get associated token address
+    const tokenAddress = await getTokenAddress(
+      'MINT_ADDRESS_HERE',
+      'USER_PUBKEY_HERE'
+    );
+
+    // Get token address for deposits/withdrawals
+    const depositAddress = await getTokenAddressForDepositAndWithdraw(
+      new PublicKey('MINT_ADDRESS'),
+      new PublicKey('AUTHORITY_PUBKEY')
+    );
+
+    // Use math utilities for orderbook calculations
+    const { bestBidPrice, bestAskPrice, markPrice, spreadPct } = 
+      COMMON_MATH.calculateSpreadBidAskMark(l2OrderBook, oraclePrice);
+    ```
+  </Step>
+</Steps>
+
+## React Integration
+
+For React applications, use the `@drift-labs/react` package to access hooks, components, and providers.
+
+<Steps>
+  <Step title="Set Up Providers">
+    Wrap your application with the `DriftProvider`:
+
+    ```tsx App.tsx
+    import { DriftProvider } from '@drift-labs/react';
+    import { WalletAdapter } from '@solana/wallet-adapter-base';
+
+    // Define your screen breakpoints
+    const breakpoints = {
+      mobile: 640,
+      tablet: 768,
+      desktop: 1024,
+      wide: 1280,
+    };
+
+    function App() {
+      // Optional: configure wallet adapters
+      const wallets: WalletAdapter[] = [
+        // Add your wallet adapters here
+      ];
+
+      return (
+        <DriftProvider
+          wallets={wallets}
+          breakpoints={breakpoints}
+          disableAutoconnect={false}
+        >
+          <YourApp />
+        </DriftProvider>
+      );
+    }
+    ```
+
+    The `DriftProvider` handles:
+    - Wallet connection and state management
+    - Drift client initialization
+    - SOL balance monitoring
+    - Screen size tracking
+    - Geo-blocking checks
+  </Step>
+
+  <Step title="Use Wallet Context">
+    Access wallet state and functionality in your components:
+
+    ```tsx WalletButton.tsx
+    import { useWalletContext, useWallet } from '@drift-labs/react';
+
+    function WalletButton() {
+      const walletContext = useWalletContext();
+      const wallet = useWallet();
+
+      const handleConnect = async () => {
+        if (walletContext.wallet) {
+          await walletContext.connect();
+        }
+      };
+
+      const handleDisconnect = async () => {
+        await walletContext.disconnect();
+      };
+
+      return (
+        <div>
+          {walletContext.connected ? (
+            <>
+              <p>Connected: {walletContext.publicKey?.toBase58()}</p>
+              <button onClick={handleDisconnect}>Disconnect</button>
+            </>
+          ) : (
+            <button onClick={handleConnect}>Connect Wallet</button>
+          )}
+        </div>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="Monitor SOL Balance">
+    Use the `useSolBalance` hook to track the user's SOL balance:
+
+    ```tsx Balance.tsx
+    import { useSolBalance } from '@drift-labs/react';
+
+    function Balance() {
+      // The hook is already set up by DriftProvider
+      // Access balance from the common store
+      const { useCommonDriftStore } = require('@drift-labs/react');
+      const solBalance = useCommonDriftStore((s) => s.solBalance);
+
+      return (
+        <div>
+          <p>SOL Balance: {solBalance?.toString() ?? 'Loading...'}</p>
+        </div>
+      );
+    }
+    ```
+  </Step>
+
+  <Step title="Use Drift Client Status">
+    Check if the Drift client is ready before performing operations:
+
+    ```tsx DriftStatus.tsx
+    import { useDriftClientIsReady } from '@drift-labs/react';
+
+    function DriftStatus() {
+      const isReady = useDriftClientIsReady();
+
+      if (!isReady) {
+        return <div>Initializing Drift client...</div>;
+      }
+
+      return <div>Drift client is ready!</div>;
+    }
+    ```
+  </Step>
+
+  <Step title="Use Common Drift Actions">
+    Access common Drift operations through the actions hook:
+
+    ```tsx DriftActions.tsx
+    import { useCommonDriftActions } from '@drift-labs/react';
+
+    function DriftActions() {
+      const actions = useCommonDriftActions();
+
+      // Actions are available for common Drift operations
+      // such as deposits, withdrawals, and trading
+
+      return (
+        <div>
+          <button onClick={() => {
+            // Use actions here
+          }}>
+            Perform Action
+          </button>
+        </div>
+      );
+    }
+    ```
+  </Step>
+</Steps>
+
+## Using Icons
+
+The icons package provides React components for Drift's design system:
+
+```tsx IconExample.tsx
+import { Account, Add, AlertTriangle, Balance } from '@drift-labs/icons';
+
+function IconExample() {
+  return (
+    <div>
+      <Account width={24} height={24} />
+      <Add width={24} height={24} />
+      <AlertTriangle width={24} height={24} />
+      <Balance width={24} height={24} />
+    </div>
+  );
+}
+```
+
+## Complete Example
+
+Here's a complete example putting it all together:
+
+<CodeGroup>
+```tsx App.tsx
+import React from 'react';
+import { DriftProvider } from '@drift-labs/react';
+import { Initialize } from '@drift-labs/common';
+import WalletStatus from './WalletStatus';
+
+// Initialize SDK
+Initialize('mainnet-beta');
+
+const breakpoints = {
+  mobile: 640,
+  tablet: 768,
+  desktop: 1024,
+  wide: 1280,
+};
+
+function App() {
+  return (
+    <DriftProvider
+      breakpoints={breakpoints}
+      disableAutoconnect={false}
+    >
+      <div className="app">
+        <h1>My Drift App</h1>
+        <WalletStatus />
+      </div>
+    </DriftProvider>
+  );
+}
+
+export default App;
+```
+
+```tsx WalletStatus.tsx
+import React from 'react';
+import { 
+  useWalletContext, 
+  useDriftClientIsReady,
+  useCommonDriftStore 
+} from '@drift-labs/react';
+import { Account } from '@drift-labs/icons';
+
+function WalletStatus() {
+  const walletContext = useWalletContext();
+  const isReady = useDriftClientIsReady();
+  const solBalance = useCommonDriftStore((s) => s.solBalance);
+
+  const handleConnect = async () => {
+    if (walletContext.wallet) {
+      await walletContext.connect();
+    }
+  };
+
+  return (
+    <div>
+      <div>
+        <Account width={32} height={32} />
+        {walletContext.connected ? (
+          <div>
+            <p>Wallet: {walletContext.publicKey?.toBase58().slice(0, 8)}...</p>
+            <p>SOL Balance: {solBalance?.toString() ?? 'Loading...'}</p>
+            <p>Status: {isReady ? 'Ready' : 'Initializing...'}</p>
+            <button onClick={() => walletContext.disconnect()}>
+              Disconnect
+            </button>
+          </div>
+        ) : (
+          <button onClick={handleConnect}>
+            Connect Wallet
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default WalletStatus;
+```
+</CodeGroup>
+
+## Advanced Configuration
+
+### Custom Drift Client Config
+
+You can provide additional Drift client configuration:
+
+```tsx
+import { DriftProvider } from '@drift-labs/react';
+import { DriftClientConfig } from '@drift-labs/sdk';
+
+const additionalConfig: Partial<DriftClientConfig> = {
+  // Add your custom config here
+};
+
+function App() {
+  return (
+    <DriftProvider
+      breakpoints={breakpoints}
+      additionalDriftClientConfig={additionalConfig}
+    >
+      {/* Your app */}
+    </DriftProvider>
+  );
+}
+```
+
+### Disable Specific Features
+
+You can disable specific features of the DriftProvider:
+
+```tsx
+<DriftProvider
+  breakpoints={breakpoints}
+  disable={{
+    idlePollingRateSwitcher: false,
+    emulation: false,
+    geoblocking: false,
+    initConnection: false,
+    subscribeSolBalance: false,
+  }}
+>
+  {/* Your app */}
+</DriftProvider>
+```
+
+## Next Steps
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Core Utilities" icon="code" href="/packages/common-ts">
+    Explore all utilities in @drift-labs/common
+  </Card>
+  <Card title="React Hooks" icon="react" href="/api/react/hooks/overview">
+    Learn about available React hooks
+  </Card>
+  <Card title="Components" icon="layer-group" href="/api/react/components/overview">
+    Browse UI components
+  </Card>
+  <Card title="Icons" icon="palette" href="/packages/icons">
+    View available icons
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

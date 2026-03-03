@@ -1,0 +1,728 @@
+---
+title: '@drift-labs/icons'
+description: 'Comprehensive React icon library auto-generated from Figma designs'
+icon: 'icons'
+---
+
+## Overview
+
+`@drift-labs/icons` is a comprehensive icon library containing 197+ React components auto-generated from Figma designs. Each icon is fully customizable, accessible, and optimized for performance. The icons maintain consistency with Drift's design system while being flexible enough for various use cases.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @drift-labs/icons
+```
+
+```bash yarn
+yarn add @drift-labs/icons
+```
+
+```bash bun
+bun add @drift-labs/icons
+```
+</CodeGroup>
+
+### Peer Dependencies
+
+```bash
+npm install react@19.0.0-rc-02c0e824-20241028
+```
+
+<Info>
+  This package uses React 19 RC but is compatible with React 18.x as well.
+</Info>
+
+## Quick Start
+
+### Basic Usage
+
+```tsx
+import { Add, ChevronDown, Wallet } from '@drift-labs/icons';
+
+function MyComponent() {
+  return (
+    <div>
+      <Add size={24} color="#000" />
+      <ChevronDown size={16} />
+      <Wallet size={32} color="blue" />
+    </div>
+  );
+}
+```
+
+### With Custom Styling
+
+```tsx
+import { AlertTriangle } from '@drift-labs/icons';
+
+function ErrorMessage() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <AlertTriangle size={20} color="#ff0000" />
+      <span>Something went wrong</span>
+    </div>
+  );
+}
+```
+
+## Icon Props
+
+All icons accept the following props:
+
+<ParamField path="color" type="string" default="currentColor">
+  Set icon fill color. Accepts any valid CSS color value.
+</ParamField>
+
+<ParamField path="size" type="number" default="24">
+  Set width and height of icon in pixels.
+</ParamField>
+
+<ParamField path="autoSize" type="boolean" default="false">
+  Whether to scale icon according to font-size. Sets width and height to 1em.
+</ParamField>
+
+<ParamField path="svgProps" type="React.SVGProps<SVGSVGElement>">
+  Props to pass directly to the SVG element.
+</ParamField>
+
+<ParamField path="...spanProps" type="React.HTMLProps<HTMLSpanElement>">
+  Any additional props are passed to the wrapper span element.
+</ParamField>
+
+### Type Definition
+
+```typescript
+import type { IconProps } from '@drift-labs/icons';
+
+type IconProps = {
+  color?: string;
+  size?: number;
+  autoSize?: boolean;
+  svgProps?: React.SVGProps<SVGSVGElement>;
+} & Omit<React.HTMLProps<HTMLSpanElement>, 'color' | 'size'>;
+```
+
+## Available Icons
+
+<Note>
+  There are 197 icons available. Below is a categorized selection. See the full list in the source code or by importing from the package.
+</Note>
+
+### Navigation & Actions
+
+<CardGroup cols={4}>
+  <Card>
+    **Add** - Plus/add symbol
+  </Card>
+  <Card>
+    **ArrowLeft** - Left arrow
+  </Card>
+  <Card>
+    **ArrowRight** - Right arrow
+  </Card>
+  <Card>
+    **ChevronDown** - Down chevron
+  </Card>
+  <Card>
+    **ChevronUp** - Up chevron
+  </Card>
+  <Card>
+    **ChevronLeft** - Left chevron
+  </Card>
+  <Card>
+    **ChevronRight** - Right chevron
+  </Card>
+  <Card>
+    **Close** - Close/X symbol
+  </Card>
+  <Card>
+    **Menu** - Hamburger menu
+  </Card>
+  <Card>
+    **MoreVertical** - Vertical dots
+  </Card>
+  <Card>
+    **MoreHorizontal** - Horizontal dots
+  </Card>
+  <Card>
+    **Refresh** - Refresh symbol
+  </Card>
+</CardGroup>
+
+### Status & Indicators
+
+<CardGroup cols={4}>
+  <Card>
+    **AlertTriangle** - Warning
+  </Card>
+  <Card>
+    **CheckFilled** - Filled check
+  </Card>
+  <Card>
+    **CheckEmpty** - Empty check
+  </Card>
+  <Card>
+    **Checkmark** - Checkmark
+  </Card>
+  <Card>
+    **Info** - Information
+  </Card>
+  <Card>
+    **Error** - Error symbol
+  </Card>
+  <Card>
+    **Success** - Success symbol
+  </Card>
+  <Card>
+    **Loading** - Loading spinner
+  </Card>
+</CardGroup>
+
+### Finance & Trading
+
+<CardGroup cols={4}>
+  <Card>
+    **Balance** - Balance scale
+  </Card>
+  <Card>
+    **Bank** - Bank building
+  </Card>
+  <Card>
+    **Calculator** - Calculator
+  </Card>
+  <Card>
+    **Chart** - Chart/graph
+  </Card>
+  <Card>
+    **Coins** - Coin stack
+  </Card>
+  <Card>
+    **Dollar** - Dollar sign
+  </Card>
+  <Card>
+    **Wallet** - Wallet icon
+  </Card>
+  <Card>
+    **TrendingUp** - Trending up
+  </Card>
+  <Card>
+    **TrendingDown** - Trending down
+  </Card>
+  <Card>
+    **Position** - Position icon
+  </Card>
+</CardGroup>
+
+### UI Elements
+
+<CardGroup cols={4}>
+  <Card>
+    **Calendar** - Calendar
+  </Card>
+  <Card>
+    **Clock** - Clock
+  </Card>
+  <Card>
+    **Copy** - Copy symbol
+  </Card>
+  <Card>
+    **Download** - Download arrow
+  </Card>
+  <Card>
+    **Edit** - Edit/pencil
+  </Card>
+  <Card>
+    **Eye** - Eye/visible
+  </Card>
+  <Card>
+    **EyeOff** - Eye off/hidden
+  </Card>
+  <Card>
+    **Filter** - Filter funnel
+  </Card>
+  <Card>
+    **Search** - Search magnifier
+  </Card>
+  <Card>
+    **Settings** - Settings gear
+  </Card>
+  <Card>
+    **Sort** - Sort arrows
+  </Card>
+  <Card>
+    **Star** - Star
+  </Card>
+</CardGroup>
+
+### Social & Platforms
+
+```tsx
+import {
+  Apple,
+  Discord,
+  Github,
+  Google,
+  Telegram,
+  Twitter,
+  Medium,
+} from '@drift-labs/icons';
+```
+
+## Usage Examples
+
+### Responsive Icon Size
+
+Use `autoSize` to make icons scale with text:
+
+```tsx
+import { Info } from '@drift-labs/icons';
+
+function InfoText() {
+  return (
+    <p style={{ fontSize: '18px' }}>
+      <Info autoSize /> This icon scales with font size
+    </p>
+  );
+}
+```
+
+### Dynamic Color
+
+Icons default to `currentColor`, inheriting text color:
+
+```tsx
+import { Star } from '@drift-labs/icons';
+
+function RatingStars({ active }) {
+  return (
+    <div style={{ color: active ? '#ffd700' : '#ccc' }}>
+      <Star size={24} />
+    </div>
+  );
+}
+```
+
+### With Custom SVG Props
+
+```tsx
+import { Loading } from '@drift-labs/icons';
+
+function SpinningLoader() {
+  return (
+    <Loading
+      size={32}
+      svgProps={{
+        style: {
+          animation: 'spin 1s linear infinite',
+        },
+      }}
+    />
+  );
+}
+```
+
+### Button with Icon
+
+```tsx
+import { Download } from '@drift-labs/icons';
+
+function DownloadButton() {
+  return (
+    <button
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '8px 16px',
+      }}
+    >
+      <Download size={16} />
+      <span>Download Report</span>
+    </button>
+  );
+}
+```
+
+### Icon Grid
+
+```tsx
+import { Grid, List, Calendar, Settings } from '@drift-labs/icons';
+
+function ViewSwitcher({ view, setView }) {
+  const icons = [
+    { name: 'grid', Icon: Grid },
+    { name: 'list', Icon: List },
+    { name: 'calendar', Icon: Calendar },
+    { name: 'settings', Icon: Settings },
+  ];
+  
+  return (
+    <div style={{ display: 'flex', gap: 8 }}>
+      {icons.map(({ name, Icon }) => (
+        <button
+          key={name}
+          onClick={() => setView(name)}
+          style={{
+            padding: 8,
+            backgroundColor: view === name ? '#e0e0e0' : 'transparent',
+          }}
+        >
+          <Icon size={20} color={view === name ? '#000' : '#666'} />
+        </button>
+      ))}
+    </div>
+  );
+}
+```
+
+### Trading Interface Example
+
+```tsx
+import {
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  Position,
+  Settings,
+} from '@drift-labs/icons';
+
+function TradingHeader() {
+  return (
+    <header style={{ display: 'flex', gap: 24, padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <TrendingUp size={20} color="#00ff00" />
+        <span>+12.5%</span>
+      </div>
+      
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Wallet size={20} />
+        <span>0.5 SOL</span>
+      </div>
+      
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Position size={20} />
+        <span>3 Positions</span>
+      </div>
+      
+      <button style={{ marginLeft: 'auto' }}>
+        <Settings size={20} />
+      </button>
+    </header>
+  );
+}
+```
+
+## Icon Generation
+
+<Info>
+  Icons are automatically generated from Figma using a custom build script. Do not manually edit icon component files.
+</Info>
+
+### Regenerating Icons
+
+To regenerate icons from Figma:
+
+```bash
+# Set up Figma API token
+echo "FIGMA_TOKEN=your_token_here" > .env
+
+# Generate icons
+bun run icons
+
+# Build the package
+bun run build
+```
+
+### Generation Process
+
+1. **Fetch from Figma**: The script connects to Figma API and downloads SVG assets
+2. **Transform**: SVGs are processed with SVGR to create React components
+3. **Generate Components**: Each icon becomes a typed React component
+4. **Export**: All icons are exported from `src/icons/index.ts`
+
+<Warning>
+  The `src/icons/components/` directory is auto-generated. Do not manually edit files in this directory.
+</Warning>
+
+## Component Structure
+
+Each icon component follows this structure:
+
+```tsx
+import * as React from 'react';
+import { IconProps } from '../../types';
+import { IconWrapper } from '../IconWrapper';
+
+const Add = (allProps: IconProps) => {
+  const { svgProps: props, ...restProps } = allProps;
+  return (
+    <IconWrapper
+      icon={
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          {...props}
+        >
+          <path
+            d="M20 11.25a.75.75 0 010 1.5h-7.25V20a.75.75 0 11-1.5 0v-7.25H4a.75.75 0 010-1.5h7.25V4a.75.75 0 111.5 0v7.25H20z"
+            fill={allProps.color ? allProps.color : 'currentColor'}
+          />
+        </svg>
+      }
+      {...restProps}
+    />
+  );
+};
+export default Add;
+```
+
+See the implementation in `src/icons/components/Add.tsx:1`.
+
+## TypeScript Support
+
+Full TypeScript support with exported types:
+
+```typescript
+import type { IconProps } from '@drift-labs/icons';
+import { Add } from '@drift-labs/icons';
+
+interface CustomButtonProps {
+  icon: React.ComponentType<IconProps>;
+  label: string;
+}
+
+function CustomButton({ icon: Icon, label }: CustomButtonProps) {
+  return (
+    <button>
+      <Icon size={16} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+// Usage
+<CustomButton icon={Add} label="Add Item" />
+```
+
+## Accessibility
+
+Icons are wrapped in a `<span>` element with proper ARIA attributes:
+
+```tsx
+import { Info } from '@drift-labs/icons';
+
+function AccessibleInfo() {
+  return (
+    <Info
+      size={20}
+      aria-label="Information"
+      role="img"
+    />
+  );
+}
+```
+
+<Tip>
+  Always provide `aria-label` when icons convey meaning without accompanying text.
+</Tip>
+
+## Performance
+
+### Tree Shaking
+
+The package is built with tree-shaking support. Only imported icons are included in your bundle:
+
+```tsx
+// Good - only Add icon is bundled
+import { Add } from '@drift-labs/icons';
+
+// Avoid - imports entire package
+import * as Icons from '@drift-labs/icons';
+```
+
+### Bundle Size
+
+Each icon is approximately 0.5-1 KB gzipped. The package uses:
+
+- No external dependencies (except React)
+- Inline SVG (no HTTP requests)
+- Minimal wrapper code
+
+## Styling
+
+### CSS Styling
+
+```css
+.icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-wrapper svg {
+  transition: all 0.2s ease;
+}
+
+.icon-wrapper:hover svg {
+  transform: scale(1.1);
+}
+```
+
+```tsx
+import { Settings } from '@drift-labs/icons';
+
+function StyledIcon() {
+  return (
+    <div className="icon-wrapper">
+      <Settings size={24} />
+    </div>
+  );
+}
+```
+
+### Tailwind CSS
+
+```tsx
+import { Search } from '@drift-labs/icons';
+
+function SearchInput() {
+  return (
+    <div className="relative">
+      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+        <Search size={20} />
+      </div>
+      <input
+        className="pl-10 pr-4 py-2 border rounded"
+        placeholder="Search..."
+      />
+    </div>
+  );
+}
+```
+
+## Common Patterns
+
+### Icon Button Component
+
+```tsx
+import { IconProps } from '@drift-labs/icons';
+import React from 'react';
+
+interface IconButtonProps {
+  icon: React.ComponentType<IconProps>;
+  onClick: () => void;
+  label: string;
+  size?: number;
+}
+
+function IconButton({ icon: Icon, onClick, label, size = 20 }: IconButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      style={{
+        padding: 8,
+        border: 'none',
+        background: 'transparent',
+        cursor: 'pointer',
+      }}
+    >
+      <Icon size={size} />
+    </button>
+  );
+}
+
+// Usage
+import { Settings, Refresh } from '@drift-labs/icons';
+
+<IconButton icon={Settings} onClick={() => {}} label="Settings" />
+<IconButton icon={Refresh} onClick={() => {}} label="Refresh" />
+```
+
+### Status Icon
+
+```tsx
+import { CheckFilled, AlertTriangle, Error } from '@drift-labs/icons';
+
+type Status = 'success' | 'warning' | 'error';
+
+function StatusIcon({ status }: { status: Status }) {
+  const config = {
+    success: { Icon: CheckFilled, color: '#00ff00' },
+    warning: { Icon: AlertTriangle, color: '#ffaa00' },
+    error: { Icon: Error, color: '#ff0000' },
+  };
+  
+  const { Icon, color } = config[status];
+  
+  return <Icon size={20} color={color} />;
+}
+```
+
+### Dynamic Icon Loader
+
+```tsx
+import * as Icons from '@drift-labs/icons';
+
+function DynamicIcon({ name, ...props }: { name: string } & Icons.IconProps) {
+  const Icon = Icons[name as keyof typeof Icons];
+  
+  if (!Icon) {
+    console.warn(`Icon "${name}" not found`);
+    return null;
+  }
+  
+  return <Icon {...props} />;
+}
+
+// Usage
+<DynamicIcon name="Add" size={24} />
+<DynamicIcon name="Settings" size={20} color="blue" />
+```
+
+## Package Scripts
+
+```json
+{
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "icons": "node ./src/generate.js",
+    "clean-icons": "rm -rf src/icons/components/*"
+  }
+}
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="React Package" icon="react" href="/packages/react">
+    Use icons with React components and hooks
+  </Card>
+  
+  <Card title="Common Package" icon="toolbox" href="/packages/common-ts">
+    Core utilities for Drift applications
+  </Card>
+  
+  <Card title="GitHub Repository" icon="github" href="https://github.com/drift-labs/drift-common/tree/master/icons">
+    View source code and icon generation scripts
+  </Card>
+  
+  <Card title="Figma Design System" icon="figma" href="#">
+    View the source Figma file (requires access)
+  </Card>
+</CardGroup>
+
+## Full Icon List
+
+Here is the complete alphabetical list of all 197 icons:
+
+<Accordion title="View All Icons (197 total)">
+  Accordion, Account, Add, AlertTriangle, Amplify, Apple, ArrowLeft, ArrowRight, Autoconfirm, Balance, Bank, Bankrupt, Bolt, Books, Bridge, Calculator, Calendar, CaretDown, CaretUp, CheckEmpty, CheckFilled, Checkmark, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ChevronsDown, ChevronsLeft, ChevronsRight, ChevronsUp, Circle, Clock, Close, Coins, Connect, Copy, CopyOld, Cross, Cursor, Dashboard, Delegate, DelegateV2, Delete, Deposit, Discord, Disconnect, Dollar, DollarSquare, Donate, DoubleChevronDown, DoubleChevronLeft, DoubleChevronRight, DoubleChevronUp, Download, Earn, Edit, EmptyCheckbox, EmptyRadio, Error, Eth, Exclamation, ExternalLink, Eye, EyeOff, Faucet, FilledCheckbox, FilledRadio, Filter, Github, Google, Governance, Grid, Help, History, Home, Import, Info, InfoOutline, Insurance, Jupiter, Leaderboard, Leverage, Lightning, Link, List, Lock, Logo, LogoSimple, Logout, Maker, Medium, Menu, Minus, Moon, MoreHorizontal, MoreVertical, NotificationBell, NotificationBellOff, OpenOrders, Order, Pause, Pencil, PerpStats, Play, Plus, Portfolio, Position, Power, Profile, Refresh, RefreshOld, Rocket, Search, Send, Settings, Share, Shield, SignOut, Slippage, Sol, SolanaFmIcon, SolanaLogo, SolscanLogo, Sort, SortAsc, SortDesc, Sparkle, Speedometer, Spinner, Spot, SpotStats, Star, Stats, Success, Sun, Swap, Taker, Telegram, Timer, Token, Trade, TradingView, Transactions, Transfer, Trash, TrendingDown, TrendingUp, Triangle, Twitter, TwoArrows, Unlock, Upload, Usdc, User, Users, Vault, Verified, Vote, Wallet, Warning, Withdraw, World, Wrench, X, ZoomIn, ZoomOut
+</Accordion>
+
+<Note>
+  Icon names are exported exactly as shown. Import them with named imports for best tree-shaking.
+</Note>

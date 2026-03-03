@@ -1,0 +1,518 @@
+---
+title: 'Environment Constants'
+description: 'Network configurations and service endpoints for different Drift environments'
+---
+
+## Overview
+
+Drift Common provides environment-specific constants for connecting to different networks and services. The `EnvironmentConstants` object contains RPC endpoints, API server URLs, and service endpoints for development and production environments.
+
+## EnvironmentConstants
+
+The central configuration object for all environment-specific settings:
+
+```typescript
+import { EnvironmentConstants } from '@drift/common';
+
+// Access mainnet endpoints
+const mainnetRpcs = EnvironmentConstants.rpcs.mainnet;
+const mainnetDataServer = EnvironmentConstants.dataServerUrl.mainnet;
+
+// Access devnet endpoints
+const devnetRpcs = EnvironmentConstants.rpcs.dev;
+const devnetHistoryServer = EnvironmentConstants.historyServerUrl.dev;
+```
+
+See EnvironmentConstants.ts:8-69 for implementation details.
+
+## RPC Endpoints
+
+Solana RPC endpoints for connecting to the blockchain:
+
+### RPC Endpoint Interface
+
+```typescript
+export interface RpcEndpoint {
+  label: string; // Human-readable name
+  value: string; // HTTP/HTTPS RPC URL
+  wsValue?: string; // WebSocket URL
+  allowAdditionalConnection: boolean; // Can be used with additional connections
+}
+```
+
+See EnvironmentConstants.ts:1-6 for RpcEndpoint interface.
+
+### Devnet RPC Endpoints
+
+```typescript
+const devnetRpcs = EnvironmentConstants.rpcs.dev;
+// [
+//   {
+//     label: 'Helius',
+//     value: 'https://detailed-sharleen-fast-devnet.helius-rpc.com',
+//     wsValue: 'wss://detailed-sharleen-fast-devnet.helius-rpc.com',
+//     allowAdditionalConnection: true,
+//   },
+//   {
+//     label: 'RPC Pool',
+//     value: 'https://drift-drift-a827.devnet.rpcpool.com/3639271b-6f0e-47c6-a643-1aaa0e498f58',
+//     wsValue: 'wss://drift-drift-a827.devnet.rpcpool.com/3639271b-6f0e-47c6-a643-1aaa0e498f58/whirligig',
+//     allowAdditionalConnection: false,
+//   },
+// ]
+```
+
+See EnvironmentConstants.ts:10-24 for devnet RPC configuration.
+
+**Usage**
+```typescript
+import { Connection } from '@solana/web3.js';
+
+const devnetRpc = EnvironmentConstants.rpcs.dev[0];
+const connection = new Connection(devnetRpc.value, 'confirmed');
+```
+
+### Mainnet RPC Endpoints
+
+```typescript
+const mainnetRpcs = EnvironmentConstants.rpcs.mainnet;
+// [
+//   {
+//     label: 'Triton RPC Pool 1',
+//     value: 'https://drift-drift_ma-39b5.mainnet.rpcpool.com/',
+//     wsValue: 'wss://drift-drift_ma-39b5.mainnet.rpcpool.com/whirligig',
+//     allowAdditionalConnection: true,
+//   },
+//   {
+//     label: 'Helius 1',
+//     value: 'https://kora-8cwrc2-fast-mainnet.helius-rpc.com/',
+//     wsValue: 'wss://kora-8cwrc2-fast-mainnet.helius-rpc.com/',
+//     allowAdditionalConnection: true,
+//   },
+// ]
+```
+
+See EnvironmentConstants.ts:26-39 for mainnet RPC configuration.
+
+**Usage**
+```typescript
+const mainnetRpc = EnvironmentConstants.rpcs.mainnet[0];
+const connection = new Connection(mainnetRpc.value, 'confirmed');
+
+// Use WebSocket endpoint for subscriptions
+const wsConnection = new Connection(mainnetRpc.wsValue, 'confirmed');
+```
+
+### Selecting RPC Endpoints
+
+```typescript
+function getRpcEndpoint(env: 'dev' | 'mainnet', preferredLabel?: string): string {
+  const rpcs = EnvironmentConstants.rpcs[env];
+  
+  if (preferredLabel) {
+    const preferred = rpcs.find(rpc => rpc.label === preferredLabel);
+    if (preferred) return preferred.value;
+  }
+  
+  // Use first available RPC
+  return rpcs[0].value;
+}
+
+// Usage
+const endpoint = getRpcEndpoint('mainnet', 'Helius 1');
+```
+
+## History Server URLs
+
+The History Server provides historical data, trade history, and analytics:
+
+```typescript
+const historyServerUrl = {
+  dev: 'https://master.api.drift.trade',
+  mainnet: 'https://mainnet-beta.api.drift.trade',
+  staging: 'https://staging.api.drift.trade',
+};
+```
+
+See EnvironmentConstants.ts:41-45 for history server configuration.
+
+**Endpoints**
+- **Development**: `https://master.api.drift.trade`
+- **Mainnet**: `https://mainnet-beta.api.drift.trade`
+- **Staging**: `https://staging.api.drift.trade`
+
+**Usage**
+```typescript
+const historyUrl = EnvironmentConstants.historyServerUrl.mainnet;
+const response = await fetch(`${historyUrl}/trades?marketIndex=0`);
+```
+
+## Data Server URLs
+
+The Data Server provides market data, funding rates, and candle data:
+
+```typescript
+const dataServerUrl = {
+  dev: 'https://data-master.api.drift.trade',
+  mainnet: 'https://data.api.drift.trade',
+  staging: 'https://data-staging.api.drift.trade',
+};
+```
+
+See EnvironmentConstants.ts:46-50 for data server configuration.
+
+**Endpoints**
+- **Development**: `https://data-master.api.drift.trade`
+- **Mainnet**: `https://data.api.drift.trade`
+- **Staging**: `https://data-staging.api.drift.trade`
+
+**Usage**
+```typescript
+const dataUrl = EnvironmentConstants.dataServerUrl.mainnet;
+const response = await fetch(`${dataUrl}/fundingRates?marketIndex=0`);
+```
+
+## DLOB Server URLs
+
+The DLOB (Decentralized Limit Order Book) Server provides orderbook data, auction parameters, and priority fees:
+
+### HTTP Endpoints
+
+```typescript
+const dlobServerHttpUrl = {
+  dev: 'https://master.dlob.drift.trade',
+  mainnet: 'https://dlob.drift.trade',
+  staging: 'https://staging.dlob.drift.trade',
+};
+```
+
+See EnvironmentConstants.ts:51-55 for DLOB HTTP server configuration.
+
+**Endpoints**
+- **Development**: `https://master.dlob.drift.trade`
+- **Mainnet**: `https://dlob.drift.trade`
+- **Staging**: `https://staging.dlob.drift.trade`
+
+**Usage**
+```typescript
+const dlobUrl = EnvironmentConstants.dlobServerHttpUrl.mainnet;
+const response = await fetch(`${dlobUrl}/l2?marketName=SOL-PERP`);
+```
+
+### WebSocket Endpoints
+
+```typescript
+const dlobServerWsUrl = {
+  dev: 'wss://master.dlob.drift.trade/ws',
+  mainnet: 'wss://dlob.drift.trade/ws',
+  staging: 'wss://staging.dlob.drift.trade/ws',
+};
+```
+
+See EnvironmentConstants.ts:56-60 for DLOB WebSocket server configuration.
+
+**Endpoints**
+- **Development**: `wss://master.dlob.drift.trade/ws`
+- **Mainnet**: `wss://dlob.drift.trade/ws`
+- **Staging**: `wss://staging.dlob.drift.trade/ws`
+
+**Usage**
+```typescript
+const wsUrl = EnvironmentConstants.dlobServerWsUrl.mainnet;
+const ws = new WebSocket(wsUrl);
+
+ws.on('open', () => {
+  ws.send(JSON.stringify({
+    type: 'subscribe',
+    marketType: 'perp',
+    marketIndex: 0,
+  }));
+});
+```
+
+## Events Server URLs
+
+The Events Server provides real-time event streams:
+
+```typescript
+const eventsServerUrl = {
+  mainnet: 'wss://events.drift.trade/ws',
+  staging: 'wss://events.drift.trade/ws',
+};
+```
+
+See EnvironmentConstants.ts:61-64 for events server configuration.
+
+**Endpoints**
+- **Mainnet**: `wss://events.drift.trade/ws`
+- **Staging**: `wss://events.drift.trade/ws`
+
+<Note>
+Events Server is only available for mainnet and staging. There is no development endpoint.
+</Note>
+
+**Usage**
+```typescript
+const eventsUrl = EnvironmentConstants.eventsServerUrl.mainnet;
+const ws = new WebSocket(eventsUrl);
+
+ws.on('message', (data) => {
+  const event = JSON.parse(data);
+  console.log('Event received:', event);
+});
+```
+
+## Swift Server URLs
+
+The Swift Server handles gasless (signed message) orders:
+
+```typescript
+const swiftServerUrl = {
+  mainnet: 'https://swift.drift.trade',
+  staging: 'https://master.swift.drift.trade',
+};
+```
+
+See EnvironmentConstants.ts:65-68 for Swift server configuration.
+
+**Endpoints**
+- **Mainnet**: `https://swift.drift.trade`
+- **Staging**: `https://master.swift.drift.trade`
+
+<Note>
+Swift Server is only available for mainnet and staging. For development testing, use the staging endpoint.
+</Note>
+
+**Usage**
+```typescript
+const swiftUrl = EnvironmentConstants.swiftServerUrl.mainnet;
+
+// Swift orders are typically created through the client
+await serverDrift.getOpenPerpMarketOrderTxn({
+  userAccountPublicKey,
+  marketIndex: 0,
+  amount: new BN(1_000_000_000),
+  direction: PositionDirection.LONG,
+  useSwift: true, // Enable Swift (gasless) order
+  swiftOptions: {
+    // Swift server URL is automatically set by the client
+  },
+});
+```
+
+## Environment Selection
+
+Utility function for selecting the correct environment:
+
+```typescript
+import { DriftEnv } from '@drift-labs/sdk';
+
+function getEnvironmentUrls(env: DriftEnv) {
+  const envKey = env === 'devnet' ? 'dev' : 'mainnet';
+  
+  return {
+    rpc: EnvironmentConstants.rpcs[envKey][0].value,
+    wsRpc: EnvironmentConstants.rpcs[envKey][0].wsValue,
+    historyServer: EnvironmentConstants.historyServerUrl[envKey],
+    dataServer: EnvironmentConstants.dataServerUrl[envKey],
+    dlobServer: EnvironmentConstants.dlobServerHttpUrl[envKey],
+    dlobWebSocket: EnvironmentConstants.dlobServerWsUrl[envKey],
+    swiftServer: env === 'devnet' 
+      ? EnvironmentConstants.swiftServerUrl.staging
+      : EnvironmentConstants.swiftServerUrl.mainnet,
+  };
+}
+
+// Usage
+const urls = getEnvironmentUrls('mainnet-beta');
+console.log('RPC:', urls.rpc);
+console.log('DLOB:', urls.dlobServer);
+```
+
+## Client Integration
+
+Drift clients automatically use the correct endpoints based on the environment:
+
+### AuthorityDrift
+
+```typescript
+import { AuthorityDrift } from '@drift/common';
+
+const authorityDrift = new AuthorityDrift({
+  solanaRpcEndpoint: EnvironmentConstants.rpcs.mainnet[0].value,
+  driftEnv: 'mainnet-beta',
+  // DLOB and Swift URLs are automatically set based on environment
+});
+```
+
+See AuthorityDrift/index.ts:267-285 for endpoint setup.
+
+### CentralServerDrift
+
+```typescript
+import { CentralServerDrift } from '@drift/common';
+
+const serverDrift = new CentralServerDrift({
+  solanaRpcEndpoint: EnvironmentConstants.rpcs.mainnet[0].value,
+  driftEnv: 'mainnet-beta',
+  supportedPerpMarkets: [0, 1, 2],
+  supportedSpotMarkets: [0, 1],
+});
+
+// Access configured endpoints
+const endpoints = serverDrift.driftEndpoints;
+console.log('DLOB Server:', endpoints.dlobServerHttpUrl);
+console.log('Swift Server:', endpoints.swiftServerUrl);
+```
+
+See CentralServerDrift/index.ts:172-183 for endpoint setup.
+
+## API URLs
+
+Additional API constants for specific functionality:
+
+```typescript
+export const API_URLS = {
+  DATA_API: 'https://data.api.drift.trade',
+  DLOB: 'https://dlob.drift.trade',
+  SWIFT: 'https://swift.drift.trade',
+} as const;
+
+export const API_ENDPOINTS = {
+  FUNDING_RATES: '/fundingRates',
+  BATCH_PRIORITY_FEES: '/batchPriorityFees',
+  AUCTION_PARAMS: '/auctionParams',
+} as const;
+```
+
+See apiUrls.ts:7-31 for API URL constants.
+
+**Usage**
+```typescript
+import { API_URLS, API_ENDPOINTS } from '@drift/common';
+
+// Fetch funding rates
+const response = await fetch(
+  `${API_URLS.DATA_API}${API_ENDPOINTS.FUNDING_RATES}?marketIndex=0`
+);
+
+// Fetch auction parameters
+const auctionParams = await fetch(
+  `${API_URLS.DLOB}${API_ENDPOINTS.AUCTION_PARAMS}`
+);
+```
+
+## Environment Variables
+
+Best practice for managing environment configuration:
+
+```typescript
+// .env.development
+DRIFT_ENV=devnet
+SOLANA_RPC_URL=https://detailed-sharleen-fast-devnet.helius-rpc.com
+
+// .env.production
+DRIFT_ENV=mainnet-beta
+SOLANA_RPC_URL=https://drift-drift_ma-39b5.mainnet.rpcpool.com/
+```
+
+```typescript
+// config.ts
+import { DriftEnv } from '@drift-labs/sdk';
+import { EnvironmentConstants } from '@drift/common';
+
+export const getConfig = () => {
+  const env = (process.env.DRIFT_ENV || 'devnet') as DriftEnv;
+  const envKey = env === 'devnet' ? 'dev' : 'mainnet';
+  
+  return {
+    env,
+    rpcEndpoint: process.env.SOLANA_RPC_URL || 
+      EnvironmentConstants.rpcs[envKey][0].value,
+    dlobServerUrl: EnvironmentConstants.dlobServerHttpUrl[envKey],
+    dataServerUrl: EnvironmentConstants.dataServerUrl[envKey],
+    swiftServerUrl: EnvironmentConstants.swiftServerUrl[
+      env === 'devnet' ? 'staging' : 'mainnet'
+    ],
+  };
+};
+```
+
+## Network Comparison
+
+| Service | Devnet | Mainnet |
+|---------|--------|----------|
+| RPC | Helius Devnet, RPC Pool Devnet | Triton RPC Pool, Helius Mainnet |
+| History Server | master.api.drift.trade | mainnet-beta.api.drift.trade |
+| Data Server | data-master.api.drift.trade | data.api.drift.trade |
+| DLOB HTTP | master.dlob.drift.trade | dlob.drift.trade |
+| DLOB WebSocket | wss://master.dlob.drift.trade/ws | wss://dlob.drift.trade/ws |
+| Swift | staging.swift.drift.trade | swift.drift.trade |
+| Events | N/A | wss://events.drift.trade/ws |
+
+## Best Practices
+
+### RPC Endpoints
+
+1. **Use Multiple RPCs**: Configure fallback RPC endpoints for reliability
+2. **WebSocket Subscriptions**: Use `wsValue` for real-time subscriptions
+3. **Rate Limiting**: Implement retry logic and respect rate limits
+
+```typescript
+const primaryRpc = EnvironmentConstants.rpcs.mainnet[0];
+const fallbackRpc = EnvironmentConstants.rpcs.mainnet[1];
+
+let connection: Connection;
+try {
+  connection = new Connection(primaryRpc.value, 'confirmed');
+  await connection.getLatestBlockhash(); // Test connection
+} catch (error) {
+  console.warn('Primary RPC failed, using fallback');
+  connection = new Connection(fallbackRpc.value, 'confirmed');
+}
+```
+
+### Server URLs
+
+1. **Environment Consistency**: Always use matching endpoints for the same environment
+2. **HTTPS/WSS**: Use secure connections in production
+3. **Error Handling**: Handle network errors and timeouts gracefully
+
+```typescript
+const fetchWithRetry = async (url: string, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, { timeout: 5000 });
+      if (response.ok) return response;
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+    }
+  }
+};
+```
+
+### Development vs Production
+
+1. **Use Devnet for Testing**: Always test on devnet before mainnet
+2. **Environment Variables**: Never hardcode production URLs
+3. **Staging Environment**: Use staging endpoints for pre-production testing
+
+```typescript
+const isDevelopment = process.env.NODE_ENV === 'development';
+const env = isDevelopment ? 'devnet' : 'mainnet-beta';
+
+const config = {
+  env,
+  rpcEndpoint: EnvironmentConstants.rpcs[
+    env === 'devnet' ? 'dev' : 'mainnet'
+  ][0].value,
+  // ... other config
+};
+```
+
+## Next Steps
+
+- Learn about [Configuration](/concepts/configuration) for SDK setup
+- Explore [Drift Client Architecture](/concepts/drift-client) for client usage
+- Check the [Quickstart Guide](/quickstart) for getting started

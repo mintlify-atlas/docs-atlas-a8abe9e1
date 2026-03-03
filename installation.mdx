@@ -1,0 +1,220 @@
+---
+title: "Installation"
+description: "Install and configure Drift Common packages for your project"
+---
+
+## Choose Your Package
+
+Drift Common is organized into three packages. Install the ones you need based on your use case:
+
+<CardGroup cols={3}>
+  <Card title="@drift-labs/common" icon="code">
+    Core utilities and clients
+  </Card>
+  <Card title="@drift-labs/react" icon="react">
+    React hooks and components
+  </Card>
+  <Card title="@drift-labs/icons" icon="palette">
+    Icon components
+  </Card>
+</CardGroup>
+
+## Installation
+
+### @drift-labs/common
+
+Core package for Drift Protocol utilities and client libraries.
+
+<CodeGroup>
+```bash npm
+npm install @drift-labs/common
+```
+
+```bash yarn
+yarn add @drift-labs/common
+```
+
+```bash pnpm
+pnpm add @drift-labs/common
+```
+
+```bash bun
+bun add @drift-labs/common
+```
+</CodeGroup>
+
+#### Peer Dependencies
+
+You must also install these peer dependencies:
+
+<CodeGroup>
+```bash npm
+npm install @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0
+```
+
+```bash yarn
+yarn add @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0
+```
+
+```bash pnpm
+pnpm add @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0
+```
+
+```bash bun
+bun add @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0
+```
+</CodeGroup>
+
+### @drift-labs/react
+
+React components, hooks, and providers for Drift applications.
+
+<CodeGroup>
+```bash npm
+npm install @drift-labs/react
+```
+
+```bash yarn
+yarn add @drift-labs/react
+```
+
+```bash pnpm
+pnpm add @drift-labs/react
+```
+
+```bash bun
+bun add @drift-labs/react
+```
+</CodeGroup>
+
+#### Peer Dependencies
+
+You must also install these peer dependencies:
+
+<CodeGroup>
+```bash npm
+npm install react@19.0.3 react-dom@19.0.3 @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0 @solana/spl-token@0.3.8
+```
+
+```bash yarn
+yarn add react@19.0.3 react-dom@19.0.3 @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0 @solana/spl-token@0.3.8
+```
+
+```bash pnpm
+pnpm add react@19.0.3 react-dom@19.0.3 @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0 @solana/spl-token@0.3.8
+```
+
+```bash bun
+bun add react@19.0.3 react-dom@19.0.3 @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0 @solana/spl-token@0.3.8
+```
+</CodeGroup>
+
+<Warning>
+The React package requires React 19.0.3. Make sure your project uses this version.
+</Warning>
+
+### @drift-labs/icons
+
+Icon components for Drift applications.
+
+<Note>
+The icons package is currently marked as private and is typically used as an internal dependency of `@drift-labs/react`. You usually don't need to install it separately unless you're developing custom Drift components.
+</Note>
+
+<CodeGroup>
+```bash npm
+npm install @drift-labs/icons
+```
+
+```bash yarn
+yarn add @drift-labs/icons
+```
+
+```bash pnpm
+pnpm add @drift-labs/icons
+```
+
+```bash bun
+bun add @drift-labs/icons
+```
+</CodeGroup>
+
+## Install All Packages
+
+If you're building a complete React application with Drift integration, install all packages together:
+
+<CodeGroup>
+```bash npm
+npm install @drift-labs/common @drift-labs/react @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0 @solana/spl-token@0.3.8 react@19.0.3 react-dom@19.0.3
+```
+
+```bash yarn
+yarn add @drift-labs/common @drift-labs/react @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0 @solana/spl-token@0.3.8 react@19.0.3 react-dom@19.0.3
+```
+
+```bash pnpm
+pnpm add @drift-labs/common @drift-labs/react @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0 @solana/spl-token@0.3.8 react@19.0.3 react-dom@19.0.3
+```
+
+```bash bun
+bun add @drift-labs/common @drift-labs/react @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0 @solana/spl-token@0.3.8 react@19.0.3 react-dom@19.0.3
+```
+</CodeGroup>
+
+## Version Compatibility
+
+<Note>
+Drift Common packages are designed to work together. Make sure you're using compatible versions:
+
+- `@drift-labs/common`: 1.0.39+
+- `@drift-labs/react`: 1.0.0+
+- `@drift-labs/sdk`: ^2.158.0-beta.0
+- `@solana/web3.js`: 1.98.0
+- `react`: 19.0.3
+</Note>
+
+## Node.js Requirements
+
+The `@drift-labs/common` package requires Node.js version ^24.x.x. Make sure your environment meets this requirement:
+
+```bash
+node --version
+# Should output v24.x.x
+```
+
+## TypeScript Configuration
+
+Drift Common packages are written in TypeScript. Add these settings to your `tsconfig.json` for optimal compatibility:
+
+```json tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true
+  }
+}
+```
+
+## Verify Installation
+
+Verify your installation by importing from the packages:
+
+```typescript
+import { EnvironmentConstants, Initialize } from '@drift-labs/common';
+import { DriftProvider, useWalletContext } from '@drift-labs/react';
+
+console.log('Drift Common packages installed successfully!');
+```
+
+If the imports work without errors, you're ready to start building!
+
+## Next Steps
+
+<Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+  Follow our quick start guide to build your first Drift application
+</Card>

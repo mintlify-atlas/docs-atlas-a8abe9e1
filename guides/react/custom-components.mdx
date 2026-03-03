@@ -1,0 +1,595 @@
+---
+title: Building Custom Components
+description: Create custom React components using Drift data and UI primitives
+---
+
+## Overview
+
+The React package provides reusable UI components and hooks to build custom interfaces. This guide shows how to combine them to create powerful custom components.
+
+## Available UI Components
+
+The package exports several pre-built components:
+
+```tsx
+import {
+  // Text/Typography
+  Typo,
+  GradientText,
+  
+  // Loaders
+  InlineLoadingBar,
+  ProgressBarThreeColor,
+  
+  // UI Elements
+  Tag,
+  
+  // Tables
+  HeaderCell,
+  BodyCell,
+  TableSkeleton,
+  
+  // Charts
+  ActiveDot,
+  
+  // Utils
+  CentreFillScroller,
+} from '@drift-labs/react';
+```
+
+## Typography Components
+
+### Typo Component
+
+The `Typo` component follows the Typography 2.0 design system with mobile-first responsive design:
+
+```tsx
+import { Typo } from '@drift-labs/react';
+
+function TypographyExample() {
+  return (
+    <div>
+      {/* Headings */}
+      <Typo.H1>Main Heading</Typo.H1>
+      <Typo.H2>Section Heading</Typo.H2>
+      <Typo.H3>Subsection Heading</Typo.H3>
+      
+      {/* Titles */}
+      <Typo.T1>Large Title</Typo.T1>
+      <Typo.T2>Medium Title</Typo.T2>
+      <Typo.T3>Small Title</Typo.T3>
+      
+      {/* Body Text */}
+      <Typo.B1>Regular body text</Typo.B1>
+      <Typo.B2>Smaller body text</Typo.B2>
+      <Typo.B3>Tiny text</Typo.B3>
+    </div>
+  );
+}
+```
+
+Source: `/home/daytona/workspace/source/react/src/components/Text/Typo.tsx:1-126`
+
+### Responsive Typography
+
+Use Tailwind classes for responsive design:
+
+```tsx
+import { Typo } from '@drift-labs/react';
+
+function ResponsiveText() {
+  return (
+    // Title 2 on mobile, Heading 5 on desktop
+    <Typo.T2 className="md:typo-h5">
+      Responsive Text
+    </Typo.T2>
+  );
+}
+```
+
+### GradientText
+
+Create gradient text effects:
+
+```tsx
+import { GradientText } from '@drift-labs/react';
+
+function Hero() {
+  return (
+    <h1>
+      <GradientText>Drift Protocol</GradientText>
+    </h1>
+  );
+}
+```
+
+## Building a Wallet Display Component
+
+Combine hooks and typography to show wallet information:
+
+```tsx
+import { useWalletContext, useCommonDriftStore, Typo } from '@drift-labs/react';
+import { useMemo } from 'react';
+
+function WalletDisplay() {
+  const wallet = useWalletContext();
+  const solBalance = useCommonDriftStore((s) => s.currentSolBalance);
+  
+  const shortAddress = useMemo(() => {
+    if (!wallet?.publicKey) return '';
+    const address = wallet.publicKey.toBase58();
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
+  }, [wallet?.publicKey]);
+
+  if (!wallet?.connected) {
+    return (
+      <button onClick={() => wallet?.connect()}>
+        <Typo.B2>Connect Wallet</Typo.B2>
+      </button>
+    );
+  }
+
+  return (
+    <div className="wallet-display">
+      <div>
+        <Typo.T4>{wallet.wallet?.adapter.name}</Typo.T4>
+        <Typo.B3 className="text-gray-500">{shortAddress}</Typo.B3>
+      </div>
+      {solBalance.loaded && (
+        <Typo.B2>
+          {solBalance.value.toNum().toFixed(4)} SOL
+        </Typo.B2>
+      )}
+    </div>
+  );
+}
+```
+
+## Building an Account Status Component
+
+Show Drift account status with loading states:
+
+```tsx
+import { 
+  useAccountExists,
+  useDriftClientIsReady,
+  useWalletContext,
+  Typo,
+  InlineLoadingBar,
+} from '@drift-labs/react';
+
+function AccountStatus() {
+  const wallet = useWalletContext();
+  const isReady = useDriftClientIsReady();
+  const accountExists = useAccountExists();
+
+  if (!wallet?.connected) {
+    return (
+      <div className="account-status">
+        <Typo.B2>Connect wallet to check account</Typo.B2>
+      </div>
+    );
+  }
+
+  if (!isReady || accountExists === undefined) {
+    return (
+      <div className="account-status">
+        <InlineLoadingBar />
+        <Typo.B3>Checking account...</Typo.B3>
+      </div>
+    );
+  }
+
+  return (
+    <div className="account-status">
+      {accountExists ? (
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 bg-green-500 rounded-full" />
+          <Typo.B2>Drift account active</Typo.B2>
+        </div>
+      ) : (
+        <div>
+          <Typo.B2>No Drift account found</Typo.B2>
+          <button className="mt-2">
+            <Typo.B3>Create Account</Typo.B3>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Building an RPC Selector Component
+
+Create an RPC endpoint selector with latency display:
+
+```tsx
+import {
+  useCurrentRpc,
+  useRpcLatencies,
+  MAINNET_RPCS,
+  Typo,
+  Tag,
+} from '@drift-labs/react';
+
+function RpcSelector() {
+  const [currentRpc, setCurrentRpc] = useCurrentRpc();
+  const latencies = useRpcLatencies();
+
+  return (
+    <div className="rpc-selector">
+      <Typo.T3>Select RPC Endpoint</Typo.T3>
+      <div className="rpc-list">
+        {MAINNET_RPCS.map((rpc) => {
+          const isActive = currentRpc.value === rpc.value;
+          const latency = latencies[rpc.value];
+          
+          return (
+            <button
+              key={rpc.value}
+              onClick={() => setCurrentRpc(rpc)}
+              className={`rpc-item ${isActive ? 'active' : ''}`}
+            >
+              <div className="flex justify-between items-center">
+                <Typo.B2>{rpc.label}</Typo.B2>
+                {latency && (
+                  <Tag variant={latency < 100 ? 'success' : 'warning'}>
+                    {latency}ms
+                  </Tag>
+                )}
+              </div>
+              {isActive && (
+                <Typo.B4 className="text-green-500">Active</Typo.B4>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+```
+
+## Building a Transaction Status Component
+
+Show transaction progress with loading indicators:
+
+```tsx
+import {
+  Typo,
+  ProgressBarThreeColor,
+  InlineLoadingBar,
+} from '@drift-labs/react';
+import { useState } from 'react';
+
+type TxStatus = 'idle' | 'signing' | 'sending' | 'confirming' | 'confirmed' | 'error';
+
+function TransactionStatus() {
+  const [status, setStatus] = useState<TxStatus>('idle');
+  const [signature, setSignature] = useState<string>();
+
+  const getProgress = () => {
+    switch (status) {
+      case 'signing': return 25;
+      case 'sending': return 50;
+      case 'confirming': return 75;
+      case 'confirmed': return 100;
+      default: return 0;
+    }
+  };
+
+  const getStatusText = () => {
+    switch (status) {
+      case 'signing': return 'Waiting for signature...';
+      case 'sending': return 'Sending transaction...';
+      case 'confirming': return 'Confirming transaction...';
+      case 'confirmed': return 'Transaction confirmed!';
+      case 'error': return 'Transaction failed';
+      default: return '';
+    }
+  };
+
+  if (status === 'idle') return null;
+
+  return (
+    <div className="tx-status">
+      <ProgressBarThreeColor progress={getProgress()} />
+      
+      <div className="mt-4">
+        {status === 'confirmed' ? (
+          <Typo.T3 className="text-green-500">
+            {getStatusText()}
+          </Typo.T3>
+        ) : status === 'error' ? (
+          <Typo.T3 className="text-red-500">
+            {getStatusText()}
+          </Typo.T3>
+        ) : (
+          <div className="flex items-center gap-2">
+            <InlineLoadingBar />
+            <Typo.B2>{getStatusText()}</Typo.B2>
+          </div>
+        )}
+      </div>
+
+      {signature && (
+        <a
+          href={`https://solscan.io/tx/${signature}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Typo.B3 className="text-blue-500">
+            View on Solscan
+          </Typo.B3>
+        </a>
+      )}
+    </div>
+  );
+}
+```
+
+## Building a Market Info Component
+
+Display market information using Drift client:
+
+```tsx
+import {
+  useCommonDriftStore,
+  useDriftClientIsReady,
+  Typo,
+  TableSkeleton,
+} from '@drift-labs/react';
+import { useEffect, useState } from 'react';
+import { BigNum } from '@drift-labs/sdk';
+
+function MarketInfo({ marketIndex }: { marketIndex: number }) {
+  const isReady = useDriftClientIsReady();
+  const driftClient = useCommonDriftStore((s) => s.driftClient.client);
+  const [marketData, setMarketData] = useState<any>(null);
+
+  useEffect(() => {
+    if (!isReady || !driftClient) return;
+
+    const market = driftClient.getSpotMarketAccount(marketIndex);
+    setMarketData(market);
+  }, [isReady, driftClient, marketIndex]);
+
+  if (!marketData) {
+    return <TableSkeleton rows={4} />;
+  }
+
+  return (
+    <div className="market-info">
+      <Typo.T2>Market #{marketIndex}</Typo.T2>
+      
+      <div className="market-stats">
+        <div>
+          <Typo.B3 className="text-gray-500">Total Deposits</Typo.B3>
+          <Typo.T4>
+            {BigNum.from(marketData.depositBalance).toNum().toLocaleString()}
+          </Typo.T4>
+        </div>
+        
+        <div>
+          <Typo.B3 className="text-gray-500">Total Borrows</Typo.B3>
+          <Typo.T4>
+            {BigNum.from(marketData.borrowBalance).toNum().toLocaleString()}
+          </Typo.T4>
+        </div>
+        
+        <div>
+          <Typo.B3 className="text-gray-500">Utilization</Typo.B3>
+          <Typo.T4>
+            {(marketData.utilizationTwap / 10000).toFixed(2)}%
+          </Typo.T4>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+## Building a Priority Fee Selector
+
+Let users configure priority fees:
+
+```tsx
+import {
+  usePriorityFeeUserSettings,
+  usePriorityFeeSubscriber,
+  Typo,
+  Tag,
+} from '@drift-labs/react';
+
+function PriorityFeeSelector() {
+  const [settings, setSettings] = usePriorityFeeUserSettings();
+  const currentFees = usePriorityFeeSubscriber();
+
+  const presets = [
+    { label: 'Low', value: currentFees.low },
+    { label: 'Medium', value: currentFees.medium },
+    { label: 'High', value: currentFees.high },
+  ];
+
+  return (
+    <div className="priority-fee-selector">
+      <Typo.T3>Priority Fee</Typo.T3>
+      
+      <div className="preset-buttons">
+        {presets.map((preset) => (
+          <button
+            key={preset.label}
+            onClick={() => setSettings({ ...settings, priorityFee: preset.value })}
+            className={settings.priorityFee === preset.value ? 'active' : ''}
+          >
+            <Typo.B2>{preset.label}</Typo.B2>
+            <Typo.B4 className="text-gray-500">
+              {preset.value} µ◎
+            </Typo.B4>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4">
+        <Typo.B3>Custom Fee (microLamports):</Typo.B3>
+        <input
+          type="number"
+          value={settings.priorityFee}
+          onChange={(e) => 
+            setSettings({ ...settings, priorityFee: Number(e.target.value) })
+          }
+          className="mt-2"
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+## Using CentreFillScroller
+
+Create scrollable content that centers when small:
+
+```tsx
+import { CentreFillScroller } from '@drift-labs/react';
+
+function ScrollableTable() {
+  return (
+    <CentreFillScroller>
+      <table>
+        {/* Table content */}
+      </table>
+    </CentreFillScroller>
+  );
+}
+```
+
+## Complete Example: Dashboard Component
+
+Combine everything into a comprehensive dashboard:
+
+```tsx
+import {
+  useWalletContext,
+  useCommonDriftStore,
+  useDriftClientIsReady,
+  useAccountExists,
+  Typo,
+  InlineLoadingBar,
+  Tag,
+} from '@drift-labs/react';
+
+function DriftDashboard() {
+  const wallet = useWalletContext();
+  const isReady = useDriftClientIsReady();
+  const accountExists = useAccountExists();
+  const solBalance = useCommonDriftStore((s) => s.currentSolBalance);
+  const emulationMode = useCommonDriftStore((s) => s.emulationMode);
+
+  return (
+    <div className="dashboard">
+      {/* Header */}
+      <header className="flex justify-between items-center">
+        <Typo.H3>Drift Dashboard</Typo.H3>
+        {emulationMode && (
+          <Tag variant="warning">Emulation Mode</Tag>
+        )}
+      </header>
+
+      {/* Wallet Section */}
+      <section className="wallet-section">
+        {!wallet?.connected ? (
+          <div>
+            <Typo.T3>Connect your wallet to get started</Typo.T3>
+            <button onClick={() => wallet?.connect()}>
+              Connect Wallet
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div className="flex justify-between">
+              <div>
+                <Typo.B3>Wallet</Typo.B3>
+                <Typo.T4>{wallet.wallet?.adapter.name}</Typo.T4>
+              </div>
+              <div>
+                <Typo.B3>SOL Balance</Typo.B3>
+                {solBalance.loaded ? (
+                  <Typo.T4>{solBalance.value.toNum().toFixed(4)}</Typo.T4>
+                ) : (
+                  <InlineLoadingBar />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Account Section */}
+      {wallet?.connected && (
+        <section className="account-section">
+          <Typo.T3>Drift Account</Typo.T3>
+          {!isReady || accountExists === undefined ? (
+            <InlineLoadingBar />
+          ) : accountExists ? (
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full" />
+              <Typo.B2>Account Active</Typo.B2>
+            </div>
+          ) : (
+            <div>
+              <Typo.B2>No account found</Typo.B2>
+              <button>Create Account</button>
+            </div>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+export default DriftDashboard;
+```
+
+## Best Practices
+
+1. **Always check ready states** before using Drift client
+2. **Use loading components** for async operations
+3. **Handle disconnected states** gracefully
+4. **Use Typo components** for consistent typography
+5. **Leverage Zustand selectors** to prevent unnecessary re-renders
+6. **Show clear error states** when operations fail
+7. **Use responsive design** with mobile-first approach
+
+## Component Styling
+
+The components work with any styling solution:
+
+```tsx
+// Tailwind CSS
+<Typo.H1 className="text-2xl font-bold text-blue-500">
+  Styled with Tailwind
+</Typo.H1>
+
+// Inline styles
+<Typo.H1 style={{ fontSize: '2rem', color: 'blue' }}>
+  Styled with inline styles
+</Typo.H1>
+
+// CSS modules
+<Typo.H1 className={styles.heading}>
+  Styled with CSS modules
+</Typo.H1>
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="React Components" icon="book" href="/api/react/components/overview">
+    Explore available React components
+  </Card>
+  <Card title="React Hooks" icon="code" href="/api/react/hooks/overview">
+    View all available hooks
+  </Card>
+</CardGroup>

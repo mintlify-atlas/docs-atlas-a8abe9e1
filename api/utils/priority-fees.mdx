@@ -1,0 +1,385 @@
+---
+title: 'Priority Fee Utilities'
+description: 'Calculate and manage Solana transaction priority fees'
+---
+
+Priority fee utilities help you calculate optimal compute unit prices for Solana transactions, convert between different fee representations, and implement dynamic fee strategies.
+
+## Import
+
+```typescript
+import {
+  PriorityFeeCalculator,
+  PriorityFeeStrategyFactory,
+  DRIFT_TX_COMPUTE_UNIT_ESTIMATE,
+  SANITY_CHECK_ABS_MAX_FEE_IN_SOL
+} from '@drift/common';
+```
+
+## PriorityFeeCalculator
+
+The main class for calculating priority fees.
+
+### calculateDynamicCUPriceToUse
+
+Calculate the compute unit price to use based on recent fee samples and multipliers.
+
+<ParamField path="latestFeeSample" type="number" required>
+  The most recent priority fee sample (in micro-lamports per compute unit)
+</ParamField>
+
+<ParamField path="boostMultiplier" type="number" default={1}>
+  Multiplier to boost the fee (e.g., 1.5 for 50% boost)
+</ParamField>
+
+<ParamField path="extraMultiplier" type="number" default={1}>
+  Additional multiplier for extreme conditions (can be controlled via environment variables)
+</ParamField>
+
+<ResponseField name="cuPrice" type="number">
+  Computed unit price in micro-lamports per compute unit (capped at sanity check maximum)
+</ResponseField>
+
+```typescript
+import { PriorityFeeCalculator } from '@drift/common';
+
+const cuPrice = PriorityFeeCalculator.calculateDynamicCUPriceToUse({
+  latestFeeSample: 5000, // From priority fee subscriber
+  boostMultiplier: 1.5,  // Boost by 50%
+  extraMultiplier: 1.0   // No extra boost
+});
+
+console.log('CU Price:', cuPrice);
+// 7500 (5000 * 1.5 * 1.0, rounded)
+```
+
+### getPriorityFeeInSolForComputeUnitPrice
+
+Convert compute unit price to SOL fee amount.
+
+<ParamField path="computeUnitPrice" type="number" required>
+  Compute unit price in micro-lamports per compute unit
+</ParamField>
+
+<ParamField path="txComputeUnits" type="number" default={600000}>
+  Transaction compute units (defaults to DRIFT_TX_COMPUTE_UNIT_ESTIMATE)
+</ParamField>
+
+<ResponseField name="feeInSol" type="number">
+  Priority fee in SOL
+</ResponseField>
+
+```typescript
+import { PriorityFeeCalculator } from '@drift/common';
+
+const feeInSol = PriorityFeeCalculator.getPriorityFeeInSolForComputeUnitPrice(
+  10000,  // CU price
+  600000  // compute units
+);
+
+console.log('Fee in SOL:', feeInSol);
+// 0.006 SOL
+```
+
+### calculatePriorityFeeInUsd
+
+Calculate priority fee in USD.
+
+<ParamField path="computeUnitPrice" type="number" required>
+  Compute unit price in micro-lamports per compute unit
+</ParamField>
+
+<ParamField path="solPrice" type="number" required>
+  Current SOL price in USD
+</ParamField>
+
+<ParamField path="txComputeUnits" type="number" default={600000}>
+  Transaction compute units
+</ParamField>
+
+<ResponseField name="feeInUsd" type="number">
+  Priority fee in USD
+</ResponseField>
+
+```typescript
+import { PriorityFeeCalculator } from '@drift/common';
+
+const feeInUsd = PriorityFeeCalculator.calculatePriorityFeeInUsd(
+  10000,  // CU price
+  150,    // SOL price in USD
+  600000  // compute units
+);
+
+console.log('Fee in USD:', feeInUsd);
+// 0.90 USD (0.006 SOL * $150)
+```
+
+### calculateCUPriceForTargetSolValue
+
+Calculate the compute unit price needed to achieve a target SOL fee.
+
+<ParamField path="targetSolValue" type="number" required>
+  Desired fee amount in SOL
+</ParamField>
+
+<ParamField path="txComputeUnits" type="number" default={600000}>
+  Transaction compute units
+</ParamField>
+
+<ResponseField name="cuPrice" type="number">
+  Required compute unit price
+</ResponseField>
+
+```typescript
+import { PriorityFeeCalculator } from '@drift/common';
+
+// What CU price gives us a 0.01 SOL fee?
+const cuPrice = PriorityFeeCalculator.calculateCUPriceForTargetSolValue(
+  0.01,   // target 0.01 SOL fee
+  600000  // compute units
+);
+
+console.log('CU Price:', cuPrice);
+// 16667 micro-lamports per CU
+```
+
+## PriorityFeeStrategyFactory
+
+Factory for creating priority fee calculation strategies.
+
+### movingWindowTargetPercentileStrategy
+
+Creates a strategy that maintains a moving window of fee samples and returns the target percentile.
+
+<ParamField path="feeStrategyTargetPercentile" type="number" required>
+  Target percentile to use (0-100)
+</ParamField>
+
+<ParamField path="feeSubscriptionSlotLookback" type="number" required>
+  Number of slots to keep in the moving window
+</ParamField>
+
+<ResponseField name="strategy" type="PriorityFeeStrategy">
+  Strategy object with calculate method
+</ResponseField>
+
+```typescript
+import { PriorityFeeStrategyFactory } from '@drift/common';
+import type { SolanaPriorityFeeResponse } from '@drift-labs/sdk';
+
+// Create a strategy that uses 75th percentile of last 50 slots
+const strategy = PriorityFeeStrategyFactory.movingWindowTargetPercentileStrategy(
+  75,  // 75th percentile
+  50   // 50 slot lookback
+);
+
+// Use with fee samples
+const samples: SolanaPriorityFeeResponse[] = [
+  { slot: 12345, prioritizationFee: 5000 },
+  { slot: 12346, prioritizationFee: 6000 },
+  { slot: 12347, prioritizationFee: 4500 },
+  // ... more samples
+];
+
+const recommendedFee = strategy.calculate(samples);
+console.log('Recommended Fee:', recommendedFee);
+```
+
+## Constants
+
+### DRIFT_TX_COMPUTE_UNIT_ESTIMATE
+
+Estimated compute units for a typical Drift transaction.
+
+```typescript
+import { DRIFT_TX_COMPUTE_UNIT_ESTIMATE } from '@drift/common';
+
+console.log(DRIFT_TX_COMPUTE_UNIT_ESTIMATE);
+// 600000
+```
+
+### SANITY_CHECK_ABS_MAX_FEE_IN_SOL
+
+Maximum allowed fee in SOL (safety check).
+
+```typescript
+import { SANITY_CHECK_ABS_MAX_FEE_IN_SOL } from '@drift/common';
+
+console.log(SANITY_CHECK_ABS_MAX_FEE_IN_SOL);
+// 1 SOL
+```
+
+### SANITY_CHECK_ABS_MAX_CU_PRICE
+
+Maximum allowed compute unit price (derived from max fee).
+
+```typescript
+import { SANITY_CHECK_ABS_MAX_CU_PRICE } from '@drift/common';
+
+console.log(SANITY_CHECK_ABS_MAX_CU_PRICE);
+// 1666667 (equals 1 SOL for 600k CU)
+```
+
+## Complete Examples
+
+### Dynamic Priority Fee Strategy
+
+```typescript
+import {
+  PriorityFeeCalculator,
+  PriorityFeeStrategyFactory,
+  DRIFT_TX_COMPUTE_UNIT_ESTIMATE
+} from '@drift/common';
+import type { SolanaPriorityFeeResponse } from '@drift-labs/sdk';
+
+// 1. Create a fee strategy
+const strategy = PriorityFeeStrategyFactory.movingWindowTargetPercentileStrategy(
+  75,  // 75th percentile
+  50   // 50 slot lookback
+);
+
+// 2. Get fee samples (from priority fee subscriber)
+const samples: SolanaPriorityFeeResponse[] = [
+  { slot: 12345, prioritizationFee: 5000 },
+  { slot: 12346, prioritizationFee: 6000 },
+  { slot: 12347, prioritizationFee: 7000 },
+  { slot: 12348, prioritizationFee: 5500 },
+  // ... more samples
+];
+
+// 3. Calculate recommended fee
+const baseFee = strategy.calculate(samples);
+
+// 4. Apply multipliers for urgency
+const cuPrice = PriorityFeeCalculator.calculateDynamicCUPriceToUse({
+  latestFeeSample: baseFee,
+  boostMultiplier: 1.5,  // Boost for faster inclusion
+  extraMultiplier: 1.0
+});
+
+// 5. Convert to SOL for display
+const feeInSol = PriorityFeeCalculator.getPriorityFeeInSolForComputeUnitPrice(
+  cuPrice,
+  DRIFT_TX_COMPUTE_UNIT_ESTIMATE
+);
+
+console.log(`Recommended CU Price: ${cuPrice}`);
+console.log(`Estimated Fee: ${feeInSol} SOL`);
+```
+
+### Fee Budgeting
+
+```typescript
+import { PriorityFeeCalculator } from '@drift/common';
+
+// Set a maximum fee budget
+const maxBudgetSol = 0.01; // 0.01 SOL max
+const solPrice = 150; // $150 per SOL
+const maxBudgetUsd = maxBudgetSol * solPrice; // $1.50 max
+
+// Calculate max CU price for budget
+const maxCuPrice = PriorityFeeCalculator.calculateCUPriceForTargetSolValue(
+  maxBudgetSol,
+  600000
+);
+
+console.log(`Max CU Price for budget: ${maxCuPrice}`);
+
+// Use the lower of recommended or max budget
+const recommendedCuPrice = 20000;
+const cuPriceToUse = Math.min(recommendedCuPrice, maxCuPrice);
+
+const actualFeeUsd = PriorityFeeCalculator.calculatePriorityFeeInUsd(
+  cuPriceToUse,
+  solPrice,
+  600000
+);
+
+console.log(`Using CU Price: ${cuPriceToUse}`);
+console.log(`Actual Fee: $${actualFeeUsd.toFixed(4)}`);
+```
+
+### Network Congestion Response
+
+```typescript
+import {
+  PriorityFeeCalculator,
+  PriorityFeeStrategyFactory
+} from '@drift/common';
+
+class AdaptiveFeeManager {
+  private strategy = PriorityFeeStrategyFactory.movingWindowTargetPercentileStrategy(
+    75,
+    50
+  );
+
+  private baseMultiplier = 1.0;
+  private readonly solPrice: number;
+
+  constructor(solPrice: number) {
+    this.solPrice = solPrice;
+  }
+
+  // Adjust multiplier based on network conditions
+  adjustForCongestion(isHighCongestion: boolean) {
+    this.baseMultiplier = isHighCongestion ? 2.0 : 1.0;
+  }
+
+  calculateFee(samples: any[]): {
+    cuPrice: number;
+    solFee: number;
+    usdFee: number;
+  } {
+    const baseFee = this.strategy.calculate(samples);
+    
+    const cuPrice = PriorityFeeCalculator.calculateDynamicCUPriceToUse({
+      latestFeeSample: baseFee,
+      boostMultiplier: this.baseMultiplier,
+      extraMultiplier: 1.0
+    });
+
+    const solFee = PriorityFeeCalculator.getPriorityFeeInSolForComputeUnitPrice(
+      cuPrice
+    );
+
+    const usdFee = PriorityFeeCalculator.calculatePriorityFeeInUsd(
+      cuPrice,
+      this.solPrice
+    );
+
+    return { cuPrice, solFee, usdFee };
+  }
+}
+
+// Usage
+const feeManager = new AdaptiveFeeManager(150); // $150 SOL
+
+// Normal conditions
+let fees = feeManager.calculateFee(samples);
+console.log('Normal:', fees);
+
+// High congestion detected
+feeManager.adjustForCongestion(true);
+fees = feeManager.calculateFee(samples);
+console.log('High Congestion:', fees);
+```
+
+## Understanding Compute Units
+
+Priority fees are calculated as:
+
+```
+FEE_LAMPORTS = (COMPUTE_UNIT_PRICE_MICRO_LAMPORTS * COMPUTE_UNITS) / 1,000,000
+```
+
+Example:
+- CU Price: 10,000 micro-lamports per CU
+- Compute Units: 600,000
+- Fee: (10,000 * 600,000) / 1,000,000 = 6,000,000 lamports = 0.006 SOL
+
+## Source Code
+
+Location: `~/workspace/source/common-ts/src/utils/priority-fees/`
+
+- `PriorityFeeCalculator.ts:35` - Main calculator class
+- `PriorityFeeStrategies.ts:13` - Strategy factory

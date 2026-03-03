@@ -1,0 +1,371 @@
+---
+title: "Config Types"
+description: "Configuration and environment types for Drift Common"
+---
+
+The Config module provides runtime configuration and environment settings for Drift protocol integrations.
+
+## Config
+
+Global configuration object that stores market lookups and SDK configuration.
+
+**Location:** `Config.ts:8-18`
+
+### Properties
+
+```typescript
+const Config: {
+  initialized: boolean;
+  spotMarketsLookup: SpotMarketConfig[];
+  perpMarketsLookup: PerpMarketConfig[];
+  sdkConfig: ReturnType<typeof initialize>;
+}
+```
+
+**Properties:**
+
+- `initialized`: boolean - Whether Config has been initialized
+- `spotMarketsLookup`: SpotMarketConfig[] - Array of spot market configs indexed by market index
+- `perpMarketsLookup`: PerpMarketConfig[] - Array of perp market configs indexed by market index
+- `sdkConfig`: ReturnType of initialize function - SDK configuration from @drift-labs/sdk
+
+### Usage
+
+```typescript
+import { Config } from '@drift/common';
+
+// Check if initialized before use
+if (Config.initialized) {
+  const solSpotMarket = Config.spotMarketsLookup[1]; // SOL spot market
+  console.log('SOL precision:', solSpotMarket.precisionExp.toString());
+  
+  const btcPerpMarket = Config.perpMarketsLookup[1]; // BTC-PERP
+  console.log('BTC-PERP symbol:', btcPerpMarket.symbol);
+}
+```
+
+**Important:** Always check `Config.initialized` before accessing lookups, as they require initialization.
+
+## Initialize
+
+Initializes the Config with environment-specific settings.
+
+**Location:** `Config.ts:20-48`
+
+### Function Signature
+
+```typescript
+function Initialize(env: DriftEnv): ReturnType<typeof initialize>
+```
+
+**Parameters:**
+
+- `env`: DriftEnv - Environment to initialize ('mainnet-beta' | 'devnet')
+
+**Returns:** SDK configuration object
+
+### What Initialize Does
+
+1. Calls SDK's `initialize({ env })` to get market configs
+2. Creates indexed arrays for O(1) market lookup by index
+3. Populates `Config.spotMarketsLookup` with spot markets
+4. Populates `Config.perpMarketsLookup` with perp markets
+5. Sets `Config.initialized = true`
+6. Stores SDK config in `Config.sdkConfig`
+
+### Usage
+
+```typescript
+import { Initialize } from '@drift/common';
+import { DriftEnv } from '@drift-labs/sdk';
+
+// Initialize for mainnet
+const sdkConfig = Initialize(DriftEnv.MAINNET);
+
+console.log('Initialized with', sdkConfig.SPOT_MARKETS.length, 'spot markets');
+console.log('Initialized with', sdkConfig.PERP_MARKETS.length, 'perp markets');
+
+// Now Config is ready for use
+import { Config } from '@drift/common';
+console.log(Config.initialized); // true
+```
+
+### Example: Initialize for Devnet
+
+```typescript
+import { Initialize } from '@drift/common';
+import { DriftEnv } from '@drift-labs/sdk';
+
+// Initialize for devnet testing
+const sdkConfig = Initialize(DriftEnv.DEVNET);
+
+// Access devnet markets
+import { Config } from '@drift/common';
+const usdcSpotMarket = Config.spotMarketsLookup[0];
+console.log('USDC Oracle:', usdcSpotMarket.oracle.toString());
+```
+
+## EnvironmentConstants
+
+Environment-specific URLs and endpoints for Drift services.
+
+**Location:** `EnvironmentConstants.ts:8-69`
+
+### RPC Endpoints
+
+```typescript
+interface RpcEndpoint {
+  label: string;
+  value: string;
+  wsValue?: string;
+  allowAdditionalConnection: boolean;
+}
+
+EnvironmentConstants.rpcs: {
+  dev: RpcEndpoint[];
+  mainnet: RpcEndpoint[];
+}
+```
+
+**Dev RPC Endpoints:**
+
+- Helius Devnet RPC
+- RPC Pool Devnet RPC
+
+**Mainnet RPC Endpoints:**
+
+- Triton RPC Pool
+- Helius Mainnet RPC
+
+### Usage: RPC Endpoints
+
+```typescript
+import { EnvironmentConstants } from '@drift/common';
+
+// Get mainnet RPC endpoints
+const mainnetRpcs = EnvironmentConstants.rpcs.mainnet;
+
+mainnetRpcs.forEach(rpc => {
+  console.log(`${rpc.label}: ${rpc.value}`);
+  if (rpc.wsValue) {
+    console.log(`  WebSocket: ${rpc.wsValue}`);
+  }
+});
+
+// Use first available RPC
+const primaryRpc = mainnetRpcs[0];
+const connection = new Connection(primaryRpc.value);
+```
+
+### History Server URLs
+
+```typescript
+EnvironmentConstants.historyServerUrl: {
+  dev: string;
+  mainnet: string;
+  staging: string;
+}
+```
+
+**URLs:**
+
+- `dev`: 'https://master.api.drift.trade'
+- `mainnet`: 'https://mainnet-beta.api.drift.trade'
+- `staging`: 'https://staging.api.drift.trade'
+
+### Usage: History Server
+
+```typescript
+import { EnvironmentConstants } from '@drift/common';
+
+const env = 'mainnet';
+const historyUrl = EnvironmentConstants.historyServerUrl[env];
+
+// Fetch user trades
+const response = await fetch(
+  `${historyUrl}/trades?user=${userPublicKey.toString()}`
+);
+const trades = await response.json();
+```
+
+### Data Server URLs
+
+```typescript
+EnvironmentConstants.dataServerUrl: {
+  dev: string;
+  mainnet: string;
+  staging: string;
+}
+```
+
+**URLs:**
+
+- `dev`: 'https://data-master.api.drift.trade'
+- `mainnet`: 'https://data.api.drift.trade'
+- `staging`: 'https://data-staging.api.drift.trade'
+
+### DLOB Server URLs
+
+```typescript
+EnvironmentConstants.dlobServerHttpUrl: {
+  dev: string;
+  mainnet: string;
+  staging: string;
+}
+
+EnvironmentConstants.dlobServerWsUrl: {
+  dev: string;
+  mainnet: string;
+  staging: string;
+}
+```
+
+**HTTP URLs:**
+
+- `dev`: 'https://master.dlob.drift.trade'
+- `mainnet`: 'https://dlob.drift.trade'
+- `staging`: 'https://staging.dlob.drift.trade'
+
+**WebSocket URLs:**
+
+- `dev`: 'wss://master.dlob.drift.trade/ws'
+- `mainnet`: 'wss://dlob.drift.trade/ws'
+- `staging`: 'wss://staging.dlob.drift.trade/ws'
+
+### Usage: DLOB Server
+
+```typescript
+import { EnvironmentConstants } from '@drift/common';
+
+const env = 'mainnet';
+
+// Connect to DLOB WebSocket
+const ws = new WebSocket(EnvironmentConstants.dlobServerWsUrl[env]);
+
+ws.onmessage = (event) => {
+  const dlobUpdate = JSON.parse(event.data);
+  console.log('DLOB update:', dlobUpdate);
+};
+
+// Or fetch current DLOB state
+const dlobState = await fetch(
+  `${EnvironmentConstants.dlobServerHttpUrl[env]}/orders`
+).then(r => r.json());
+```
+
+### Events Server URLs
+
+```typescript
+EnvironmentConstants.eventsServerUrl: {
+  mainnet: string;
+  staging: string;
+}
+```
+
+**WebSocket URLs:**
+
+- `mainnet`: 'wss://events.drift.trade/ws'
+- `staging`: 'wss://events.drift.trade/ws'
+
+### Usage: Events Server
+
+```typescript
+import { EnvironmentConstants } from '@drift/common';
+
+// Subscribe to events
+const ws = new WebSocket(EnvironmentConstants.eventsServerUrl.mainnet);
+
+ws.onopen = () => {
+  ws.send(JSON.stringify({
+    type: 'subscribe',
+    channel: 'orderFills',
+    marketIndex: 0
+  }));
+};
+
+ws.onmessage = (event) => {
+  const orderFill = JSON.parse(event.data);
+  console.log('Order fill:', orderFill);
+};
+```
+
+### Swift Server URLs
+
+```typescript
+EnvironmentConstants.swiftServerUrl: {
+  mainnet: string;
+  staging: string;
+}
+```
+
+**URLs:**
+
+- `mainnet`: 'https://swift.drift.trade'
+- `staging`: 'https://master.swift.drift.trade'
+
+### Usage: Swift Server
+
+```typescript
+import { EnvironmentConstants } from '@drift/common';
+
+const env = 'mainnet';
+
+// Create Swift account
+const response = await fetch(
+  `${EnvironmentConstants.swiftServerUrl[env]}/account`,
+  {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      authority: authorityPublicKey.toString()
+    })
+  }
+);
+
+const swiftAccount = await response.json();
+console.log('Swift account:', swiftAccount);
+```
+
+## Complete Example
+
+```typescript
+import { Initialize, Config, EnvironmentConstants } from '@drift/common';
+import { DriftEnv } from '@drift-labs/sdk';
+import { Connection } from '@solana/web3.js';
+
+// 1. Initialize Config
+const sdkConfig = Initialize(DriftEnv.MAINNET);
+
+// 2. Get RPC endpoint
+const rpcEndpoint = EnvironmentConstants.rpcs.mainnet[0];
+const connection = new Connection(rpcEndpoint.value);
+
+// 3. Access market configs
+const solSpotMarket = Config.spotMarketsLookup[1];
+console.log('SOL Spot Market:');
+console.log('  Symbol:', solSpotMarket.symbol);
+console.log('  Oracle:', solSpotMarket.oracle.toString());
+console.log('  Precision:', solSpotMarket.precisionExp.toString());
+
+const btcPerpMarket = Config.perpMarketsLookup[1];
+console.log('\nBTC-PERP Market:');
+console.log('  Symbol:', btcPerpMarket.symbol);
+console.log('  Market Index:', btcPerpMarket.marketIndex);
+
+// 4. Connect to DLOB
+const dlobWs = new WebSocket(
+  EnvironmentConstants.dlobServerWsUrl.mainnet
+);
+
+// 5. Fetch from History Server
+const historyUrl = EnvironmentConstants.historyServerUrl.mainnet;
+const trades = await fetch(`${historyUrl}/trades?marketIndex=0`)
+  .then(r => r.json());
+
+console.log('\nRecent trades:', trades.length);
+```
+
+## Source Locations
+
+- `Config.ts` - `/home/daytona/workspace/source/common-ts/src/Config.ts`
+- `EnvironmentConstants.ts` - `/home/daytona/workspace/source/common-ts/src/EnvironmentConstants.ts`

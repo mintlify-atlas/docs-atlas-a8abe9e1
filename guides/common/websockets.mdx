@@ -1,0 +1,456 @@
+---
+title: WebSocket Integration
+description: Learn how to use WebSocket clients for real-time market data in the Drift Common package
+---
+
+The Drift Common package provides robust WebSocket clients for real-time market data. This guide covers the `DlobWebsocketClient` and `MultiplexWebSocket` for building reactive trading applications.
+
+## DlobWebsocketClient
+
+The `DlobWebsocketClient` subscribes to real-time orderbook data from Drift's DLOB (Decentralized Limit Order Book) server.
+
+### Features
+
+- Real-time L2 orderbook updates
+- Support for indicative orderbooks
+- Automatic reconnection with exponential backoff
+- Slot-based result validation to prevent stale data
+- Tab return handling for browser applications
+- RxJS-based reactive streams
+- Connection multiplexing
+
+### Basic Setup
+
+<Steps>
+  <Step title="Create the client">
+    ```typescript
+    import {
+      DlobWebsocketClient,
+      EnvironmentConstants,
+    } from '@drift-labs/common';
+
+    const dlobClient = new DlobWebsocketClient({
+      websocketUrl: EnvironmentConstants.dlobServerUrl.mainnet,
+      enableIndicativeOrderbook: false,
+      onFallback: (marketId) => {
+        console.warn('Falling back for market:', marketId.key);
+        // Implement fallback logic
+      },
+    });
+    ```
+  </Step>
+
+  <Step title="Subscribe to markets">
+    ```typescript
+    import type { MarketId, OrderbookGrouping } from '@drift-labs/common';
+
+    const markets: MarketId[] = [
+      { marketIndex: 0, isPerp: true, key: 'perp-0' },  // SOL-PERP
+      { marketIndex: 1, isPerp: true, key: 'perp-1' },  // BTC-PERP
+    ];
+
+    dlobClient.subscribeToMarkets(
+      markets.map(marketId => ({
+        marketId,
+        grouping: 0.01 as OrderbookGrouping, // Optional: group orders by price
+      }))
+    );
+    ```
+  </Step>
+
+  <Step title="Listen for orderbook updates">
+    ```typescript
+    import { filter } from 'rxjs/operators';
+
+    const marketDataStream = dlobClient.getMarketDataStream(markets);
+
+    marketDataStream.subscribe((data) => {
+      const { marketId, deserializedData, slot } = data;
+
+      console.log(`Market: ${marketId.key} (Slot: ${slot})`);
+      console.log('Bids:', deserializedData.bids.slice(0, 5));
+      console.log('Asks:', deserializedData.asks.slice(0, 5));
+    });
+
+    // Filter for specific market
+    marketDataStream
+      .pipe(
+        filter(data => data.marketId.marketIndex === 0)
+      )
+      .subscribe((data) => {
+        console.log('SOL-PERP orderbook update:', data.deserializedData);
+      });
+    ```
+  </Step>
+
+  <Step title="Clean up">
+    ```typescript
+    // Unsubscribe from all markets
+    dlobClient.unsubscribeAll();
+
+    // Destroy the client when done
+    dlobClient.destroy();
+    ```
+  </Step>
+</Steps>
+
+### Orderbook Data Structure
+
+The WebSocket client returns processed orderbook data:
+
+```typescript
+interface ProcessedMarketData {
+  marketId: MarketId;
+  rawData: RawL2Output;           // Raw JSON from server
+  deserializedData: L2OrderBook;  // Parsed orderbook with bids/asks
+  slot: number;                   // Solana slot number
+}
+
+interface L2OrderBook {
+  bids: Array<{
+    price: BN;      // Price in PRICE_PRECISION
+    size: BN;       // Size in BASE_PRECISION
+    sources: {      // Liquidity sources
+      vamm?: BN;
+      serum?: BN;
+      phoenix?: BN;
+    };
+  }>;
+  asks: Array<{
+    price: BN;
+    size: BN;
+    sources: {
+      vamm?: BN;
+      serum?: BN;
+      phoenix?: BN;
+    };
+  }>;
+  slot: number;
+}
+```
+
+### Configuration Options
+
+```typescript
+interface DlobWebsocketClientConfig {
+  // WebSocket server URL
+  websocketUrl: string;
+
+  // Enable indicative orderbook (includes unfilled orders)
+  enableIndicativeOrderbook?: boolean;
+
+  // Custom slot incrementer for validation
+  resultSlotIncrementer?: ResultSlotIncrementer;
+
+  // Callback when falling back to alternative data source
+  onFallback?: (marketId: MarketId) => void;
+}
+```
+
+### Advanced Features
+
+#### Orderbook Grouping
+
+Group orderbook levels by price increments:
+
+```typescript
+import type { OrderbookGrouping } from '@drift-labs/common';
+
+// Group by 0.01 increments
+const grouping: OrderbookGrouping = 0.01;
+
+dlobClient.subscribeToMarkets([
+  {
+    marketId: { marketIndex: 0, isPerp: true, key: 'perp-0' },
+    grouping,
+  },
+]);
+```
+
+#### Tab Return Handling
+
+Handle browser tab visibility changes:
+
+```typescript
+// Call when user returns to tab
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    dlobClient.handleTabReturn();
+  }
+});
+```
+
+This prevents processing a backlog of stale orderbook updates when the user returns to the tab.
+
+#### Slot Tracking Reset
+
+Reset slot tracking on reconnection:
+
+```typescript
+// Reset slot tracking for clean state
+dlobClient.resetSlotTracking();
+```
+
+### Indicative vs Regular Orderbook
+
+**Regular Orderbook** (`enableIndicativeOrderbook: false`):
+- Shows only orders currently on the orderbook
+- Reflects actual liquidity available for immediate execution
+
+**Indicative Orderbook** (`enableIndicativeOrderbook: true`):
+- Includes pending orders not yet on the orderbook
+- Provides a more complete view of intended liquidity
+- Useful for market analysis and forecasting
+
+```typescript
+// Regular orderbook
+const regularClient = new DlobWebsocketClient({
+  websocketUrl: EnvironmentConstants.dlobServerUrl.mainnet,
+  enableIndicativeOrderbook: false,
+});
+
+// Indicative orderbook
+const indicativeClient = new DlobWebsocketClient({
+  websocketUrl: EnvironmentConstants.dlobServerUrl.mainnet,
+  enableIndicativeOrderbook: true,
+});
+```
+
+## MultiplexWebSocket
+
+The `MultiplexWebSocket` is a lower-level utility that manages WebSocket connections with multiplexing, allowing multiple subscriptions over a single connection.
+
+### Key Features
+
+- **Connection Pooling**: Reuses connections for the same URL
+- **Automatic Reconnection**: Exponential backoff with configurable limits
+- **Heartbeat Monitoring**: Detects dead connections
+- **Message Filtering**: Route messages to specific subscriptions
+- **Error Handling**: Per-subscription error callbacks
+
+### Creating a WebSocket Subscription
+
+```typescript
+import { MultiplexWebSocket } from '@drift-labs/common';
+
+const { unsubscribe } = MultiplexWebSocket.createWebSocketSubscription({
+  // WebSocket URL
+  wsUrl: 'wss://dlob.drift.trade',
+
+  // Unique identifier for this subscription
+  subscriptionId: 'my-market-feed',
+
+  // Message to send on connection
+  subscribeMessage: JSON.stringify({
+    type: 'subscribe',
+    channel: 'orderbook',
+    market: 'SOL-PERP',
+  }),
+
+  // Message to send on unsubscription
+  unsubscribeMessage: JSON.stringify({
+    type: 'unsubscribe',
+    channel: 'orderbook',
+    market: 'SOL-PERP',
+  }),
+
+  // Handle incoming messages
+  onMessage: (message) => {
+    console.log('Received:', message);
+  },
+
+  // Filter messages for this subscription
+  messageFilter: (message) => {
+    return message.channel === 'orderbook' && message.market === 'SOL-PERP';
+  },
+
+  // Handle errors
+  onError: (error) => {
+    console.error('WebSocket error:', error);
+  },
+
+  // Detect error messages
+  errorMessageFilter: (message) => {
+    return message.error !== undefined;
+  },
+
+  // Handle connection close
+  onClose: () => {
+    console.log('Connection closed');
+  },
+
+  // Enable heartbeat monitoring
+  enableHeartbeatMonitoring: true,
+  heartbeatTimeoutMs: 11000, // 11 seconds
+});
+
+// Unsubscribe when done
+unsubscribe();
+```
+
+### Reconnection Behavior
+
+The MultiplexWebSocket implements intelligent reconnection:
+
+```typescript
+class ReconnectionManager {
+  // Exponential backoff: 1s, 2s, 4s, 8s (max)
+  // Maximum 5 attempts within 60 seconds (configurable)
+  // Resets counter after time window
+}
+```
+
+**Reconnection Schedule**:
+1. First attempt: 1 second delay
+2. Second attempt: 2 seconds delay
+3. Third attempt: 4 seconds delay
+4. Fourth attempt: 8 seconds delay
+5. Fifth attempt: 8 seconds delay
+6. After 5 attempts in 60s: Throw error
+
+### Heartbeat Monitoring
+
+Enable heartbeat monitoring to detect dead connections:
+
+```typescript
+MultiplexWebSocket.createWebSocketSubscription({
+  // ... other config
+  enableHeartbeatMonitoring: true,
+  heartbeatTimeoutMs: 11000, // Consider dead if no message in 11s
+});
+```
+
+If no messages are received within the timeout period, the connection is closed and reconnection is attempted.
+
+## Reactive Patterns with RxJS
+
+The WebSocket clients use RxJS for reactive data streams:
+
+### Combining Multiple Streams
+
+```typescript
+import { combineLatest } from 'rxjs';
+import { map } from 'rxjs/operators';
+
+const solMarket = { marketIndex: 0, isPerp: true, key: 'perp-0' };
+const btcMarket = { marketIndex: 1, isPerp: true, key: 'perp-1' };
+
+const solStream = dlobClient.getMarketDataStream([solMarket]);
+const btcStream = dlobClient.getMarketDataStream([btcMarket]);
+
+combineLatest([solStream, btcStream])
+  .pipe(
+    map(([solData, btcData]) => ({
+      solBestBid: solData.deserializedData.bids[0]?.price,
+      btcBestBid: btcData.deserializedData.bids[0]?.price,
+    }))
+  )
+  .subscribe(({ solBestBid, btcBestBid }) => {
+    console.log('SOL best bid:', solBestBid?.toString());
+    console.log('BTC best bid:', btcBestBid?.toString());
+  });
+```
+
+### Throttling Updates
+
+```typescript
+import { throttleTime } from 'rxjs/operators';
+
+// Only process updates every 100ms
+marketDataStream
+  .pipe(throttleTime(100))
+  .subscribe((data) => {
+    // Update UI
+  });
+```
+
+### Error Recovery
+
+```typescript
+import { retry, catchError } from 'rxjs/operators';
+import { EMPTY } from 'rxjs';
+
+marketDataStream
+  .pipe(
+    retry(3), // Retry up to 3 times
+    catchError((error) => {
+      console.error('Stream error:', error);
+      return EMPTY; // Return empty observable
+    })
+  )
+  .subscribe((data) => {
+    // Process data
+  });
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Connection Management">
+    Properly manage WebSocket lifecycle:
+
+    ```typescript
+    // React example
+    useEffect(() => {
+      const client = new DlobWebsocketClient({ /* config */ });
+      client.subscribeToMarkets(markets);
+
+      return () => {
+        client.destroy(); // Clean up on unmount
+      };
+    }, []);
+    ```
+  </Accordion>
+
+  <Accordion title="Error Handling">
+    Implement fallback mechanisms:
+
+    ```typescript
+    const client = new DlobWebsocketClient({
+      websocketUrl: EnvironmentConstants.dlobServerUrl.mainnet,
+      onFallback: (marketId) => {
+        // Switch to polling or alternative data source
+        startPollingForMarket(marketId);
+      },
+    });
+    ```
+  </Accordion>
+
+  <Accordion title="Memory Management">
+    Prevent memory leaks with proper cleanup:
+
+    ```typescript
+    const subscription = marketDataStream.subscribe(/* ... */);
+
+    // Later, when done
+    subscription.unsubscribe();
+    dlobClient.destroy();
+    ```
+  </Accordion>
+
+  <Accordion title="Performance Optimization">
+    Use throttling for high-frequency updates:
+
+    ```typescript
+    import { throttleTime, distinctUntilChanged } from 'rxjs/operators';
+
+    marketDataStream
+      .pipe(
+        throttleTime(100),
+        distinctUntilChanged((prev, curr) => prev.slot === curr.slot)
+      )
+      .subscribe(/* ... */);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Client Modules" icon="network-wired" href="/guides/common/clients">
+    Learn about other client modules
+  </Card>
+  <Card title="Utility Functions" icon="wrench" href="/guides/common/utilities">
+    Explore helper functions and utilities
+  </Card>
+</CardGroup>

@@ -1,0 +1,149 @@
+---
+title: Setting Up React Package
+description: Complete guide to installing and configuring the @drift-labs/react package
+---
+
+## Installation
+
+Install the React package and its peer dependencies:
+
+```bash
+npm install @drift-labs/react
+```
+
+### Peer Dependencies
+
+The package requires the following peer dependencies:
+
+```json
+{
+  "@drift-labs/sdk": "^2.158.0-beta.0",
+  "@solana/spl-token": "0.3.8",
+  "@solana/web3.js": "1.98.0",
+  "react": "19.0.3",
+  "react-dom": "19.0.3"
+}
+```
+
+## Package Overview
+
+The `@drift-labs/react` package provides:
+
+- **Providers**: `DriftProvider` and `DriftWalletProvider` for app-wide state management
+- **Hooks**: Custom hooks for interacting with Drift Protocol
+- **Components**: Reusable UI components (Charts, Tables, Loaders, etc.)
+- **Stores**: Zustand-based state management for Drift data
+- **Actions**: Common actions for Drift operations
+
+## Quick Start
+
+Here's a minimal setup to get started:
+
+```tsx
+import { DriftProvider } from '@drift-labs/react';
+import { DRIFT_WALLET_PROVIDERS } from '@drift-labs/react';
+
+const DEFAULT_BREAKPOINTS = {
+  sm: 640,
+  md: 768,
+  lg: 1024,
+  xl: 1280,
+  '2xl': 1536,
+};
+
+function App() {
+  return (
+    <DriftProvider
+      wallets={DRIFT_WALLET_PROVIDERS}
+      breakpoints={DEFAULT_BREAKPOINTS}
+    >
+      {/* Your app components */}
+    </DriftProvider>
+  );
+}
+
+export default App;
+```
+
+## Environment Configuration
+
+The package automatically initializes the Drift store with environment settings. You can customize these through the `DriftProvider`:
+
+```tsx
+import { DriftProvider } from '@drift-labs/react';
+import { DriftEnv } from '@drift-labs/sdk';
+
+function App() {
+  return (
+    <DriftProvider
+      wallets={DRIFT_WALLET_PROVIDERS}
+      breakpoints={DEFAULT_BREAKPOINTS}
+      additionalDriftClientConfig={{
+        env: 'mainnet-beta' as DriftEnv,
+        // Additional SDK configuration
+      }}
+    >
+      {/* Your app components */}
+    </DriftProvider>
+  );
+}
+```
+
+## TypeScript Support
+
+The package is fully typed with TypeScript. All exports include type definitions:
+
+```tsx
+import type { 
+  DriftProviderProps,
+  CommonDriftStore,
+  UserData 
+} from '@drift-labs/react';
+```
+
+## What's Exported
+
+The package exports everything you need from a single entry point:
+
+```tsx
+import {
+  // Providers
+  DriftProvider,
+  DriftWalletProvider,
+  
+  // Hooks
+  useCommonDriftActions,
+  useWalletContext,
+  useDriftClientIsReady,
+  useSolBalance,
+  useCurrentRpc,
+  
+  // Components
+  Typo,
+  InlineLoadingBar,
+  Tag,
+  
+  // Stores
+  useCommonDriftStore,
+  
+  // Constants
+  DRIFT_WALLET_PROVIDERS,
+} from '@drift-labs/react';
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Wallet Integration" icon="wallet" href="/guides/react/wallet-integration">
+    Connect wallets and manage user authentication
+  </Card>
+  <Card title="Drift Provider" icon="layer-group" href="/guides/react/drift-provider">
+    Configure the DriftProvider for your app
+  </Card>
+  <Card title="Using Hooks" icon="code" href="/guides/react/using-hooks">
+    Learn about available hooks and how to use them
+  </Card>
+  <Card title="Custom Components" icon="puzzle-piece" href="/guides/react/custom-components">
+    Build custom components with Drift data
+  </Card>
+</CardGroup>

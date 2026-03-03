@@ -1,0 +1,635 @@
+---
+title: 'SwiftClient'
+description: 'Fast order execution via the Swift server with confirmation tracking'
+---
+
+## Overview
+
+The `SwiftClient` provides a high-performance interface for submitting orders to Drift's Swift server infrastructure. It supports multiple confirmation strategies and provides observable-based order lifecycle tracking.
+
+<Info>
+  Swift orders offer faster execution than traditional on-chain transactions by using off-chain signed messages that are later settled on-chain.
+</Info>
+
+## Key Features
+
+- **Fast Execution**: Off-chain order submission for minimal latency
+- **Multiple Confirmation Methods**: Polling-based or websocket-based confirmation
+- **Observable Lifecycle**: RxJS-based event streams for order status
+- **Type Safety**: Full TypeScript support with order type validation
+- **Health Monitoring**: Built-in server health check
+- **Custom Headers**: Configurable consumer identification
+
+## Static Configuration
+
+### init
+
+Initialize the SwiftClient with base URL and optional consumer identifier.
+
+```typescript
+static init(baseUrl: string, swiftClientConsumer?: string): void
+```
+
+<Warning>
+  You must call `init()` before using any other SwiftClient methods.
+</Warning>
+
+#### Parameters
+
+<ParamField path="baseUrl" type="string" required>
+  Swift server base URL (e.g., 'https://swift.drift.trade')
+</ParamField>
+
+<ParamField path="swiftClientConsumer" type="string">
+  Optional consumer identifier for tracking/analytics (default: 'default')
+</ParamField>
+
+#### Example
+
+```typescript
+import { SwiftClient } from '@drift-labs/common';
+
+// Initialize with custom consumer tag
+SwiftClient.init('https://swift.drift.trade', 'my-trading-app');
+```
+
+## Order Submission Methods
+
+### sendSwiftOrder
+
+Send a signed order message to the Swift server.
+
+```typescript
+static async sendSwiftOrder(
+  marketIndex: number,
+  marketType: MarketType,
+  message: string,
+  signature: Buffer,
+  takerPubkey: PublicKey,
+  signingAuthority?: PublicKey
+): Promise<ClientResponse<{ hash: string }>>
+```
+
+#### Parameters
+
+<ParamField path="marketIndex" type="number" required>
+  Market index (0 for SOL-PERP, 1 for BTC-PERP, etc.)
+</ParamField>
+
+<ParamField path="marketType" type="MarketType" required>
+  Market type (perp or spot)
+</ParamField>
+
+<ParamField path="message" type="string" required>
+  Base64-encoded order message
+</ParamField>
+
+<ParamField path="signature" type="Buffer" required>
+  Order signature buffer
+</ParamField>
+
+<ParamField path="takerPubkey" type="PublicKey" required>
+  Taker authority public key
+</ParamField>
+
+<ParamField path="signingAuthority" type="PublicKey">
+  Optional signing authority (for delegated accounts)
+</ParamField>
+
+#### Returns
+
+```typescript
+type ClientResponse<T> = Promise<{
+  success: boolean;
+  body?: T;
+  message?: string;
+  status?: number;
+}>;
+```
+
+#### Example
+
+```typescript
+import { SwiftClient } from '@drift-labs/common';
+import { MarketType } from '@drift-labs/sdk';
+import { PublicKey } from '@solana/web3.js';
+
+const response = await SwiftClient.sendSwiftOrder(
+  0, // SOL-PERP
+  MarketType.PERP,
+  orderMessage,
+  signatureBuffer,
+  takerAuthority,
+  signingAuthority
+);
+
+if (response.success) {
+  console.log('Order sent! Hash:', response.body.hash);
+} else {
+  console.error('Order failed:', response.message);
+}
+```
+
+### sendAndConfirmSwiftOrder
+
+Send an order and confirm via polling.
+
+```typescript
+static sendAndConfirmSwiftOrder(
+  marketIndex: number,
+  marketType: MarketType,
+  message: string,
+  signature: Buffer,
+  takerPubkey: PublicKey,
+  confirmDuration: number,
+  signingAuthority: PublicKey
+): Observable<SwiftOrderEvent>
+```
+
+#### Parameters
+
+Same as `sendSwiftOrder()` plus:
+
+<ParamField path="confirmDuration" type="number" required>
+  Maximum time to wait for confirmation (milliseconds)
+</ParamField>
+
+#### Returns
+
+Observable that emits `SwiftOrderEvent` objects:
+
+<Expandable title="SwiftOrderEvent types">
+  ```typescript
+  // Order successfully sent
+  interface SwiftOrderSentEvent {
+    type: 'sent';
+    hash: string;
+  }
+  
+  // Order confirmed on-chain
+  interface SwiftOrderConfirmedEvent {
+    type: 'confirmed';
+    hash: string;
+    orderId: string;
+  }
+  
+  // Order failed or expired
+  interface SwiftOrderErroredEvent {
+    type: 'errored' | 'expired';
+    hash: string;
+    message?: string;
+    status?: number;
+  }
+  ```
+</Expandable>
+
+#### Example
+
+```typescript
+import { SwiftClient } from '@drift-labs/common';
+
+const orderStream = SwiftClient.sendAndConfirmSwiftOrder(
+  0, // SOL-PERP
+  MarketType.PERP,
+  message,
+  signature,
+  takerPubkey,
+  30000, // 30 second timeout
+  signingAuthority
+);
+
+orderStream.subscribe({
+  next: (event) => {
+    switch (event.type) {
+      case 'sent':
+        console.log('Order sent:', event.hash);
+        break;
+      case 'confirmed':
+        console.log('Order confirmed! ID:', event.orderId);
+        break;
+      case 'errored':
+      case 'expired':
+        console.error('Order failed:', event.message);
+        break;
+    }
+  },
+  error: (err) => console.error('Stream error:', err),
+  complete: () => console.log('Order lifecycle complete')
+});
+```
+
+### sendAndConfirmSwiftOrderWS
+
+Send an order and confirm via websocket (more reliable than polling).
+
+```typescript
+static sendAndConfirmSwiftOrderWS(
+  connection: Connection,
+  client: DriftClient,
+  marketIndex: number,
+  marketType: MarketType,
+  message: string,
+  signature: Buffer,
+  takerPubkey: PublicKey,
+  signedMsgUserOrdersAccountPubkey: PublicKey,
+  signedMsgOrderUuid: Uint8Array,
+  confirmDuration: number,
+  signingAuthority: PublicKey
+): Observable<SwiftOrderEvent>
+```
+
+#### Parameters
+
+Same as `sendAndConfirmSwiftOrder()` plus:
+
+<ParamField path="connection" type="Connection" required>
+  Solana web3 connection instance
+</ParamField>
+
+<ParamField path="client" type="DriftClient" required>
+  Drift SDK client instance
+</ParamField>
+
+<ParamField path="signedMsgUserOrdersAccountPubkey" type="PublicKey" required>
+  Public key of the signed message user orders account
+</ParamField>
+
+<ParamField path="signedMsgOrderUuid" type="Uint8Array" required>
+  UUID of the signed order message
+</ParamField>
+
+#### Confirmation Strategy
+
+The websocket method uses three parallel confirmation strategies:
+
+1. **Immediate RPC fetch**: Checks immediately for order
+2. **Polling**: Checks every 2 seconds via RPC
+3. **Websocket subscription**: Listens for account changes
+
+First confirmation wins and resolves the observable.
+
+#### Example
+
+```typescript
+import { SwiftClient } from '@drift-labs/common';
+import { Connection } from '@solana/web3.js';
+import { DriftClient } from '@drift-labs/sdk';
+
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+const driftClient = new DriftClient({ connection, /* ... */ });
+
+const orderStream = SwiftClient.sendAndConfirmSwiftOrderWS(
+  connection,
+  driftClient,
+  0, // SOL-PERP
+  MarketType.PERP,
+  message,
+  signature,
+  takerPubkey,
+  signedMsgUserOrdersAccountPubkey,
+  signedMsgOrderUuid,
+  30000, // 30 second timeout
+  signingAuthority
+);
+
+orderStream.subscribe({
+  next: (event) => {
+    if (event.type === 'confirmed') {
+      console.log('Order confirmed via websocket! ID:', event.orderId);
+    }
+  },
+  error: () => {
+    console.error('Order confirmation failed');
+  }
+});
+```
+
+## Utility Methods
+
+### isSwiftServerHealthy
+
+Check if the Swift server is healthy and accepting orders.
+
+```typescript
+static async isSwiftServerHealthy(): Promise<boolean>
+```
+
+#### Returns
+
+`true` if server returns 200 status, `false` otherwise.
+
+#### Example
+
+```typescript
+const isHealthy = await SwiftClient.isSwiftServerHealthy();
+
+if (!isHealthy) {
+  console.warn('Swift server is down, using fallback order submission');
+  // Use alternative order submission method
+}
+```
+
+### isSupportedOrderType
+
+Check if an order type is supported by the Swift server.
+
+```typescript
+static isSupportedOrderType(orderType: OrderType): boolean
+```
+
+#### Parameters
+
+<ParamField path="orderType" type="OrderType" required>
+  Order type to check
+</ParamField>
+
+#### Supported Order Types
+
+- `OrderType.MARKET`
+- `OrderType.LIMIT`
+
+<Info>
+  Post-only, fill-or-kill, and other advanced order types are NOT supported by Swift.
+</Info>
+
+#### Example
+
+```typescript
+import { OrderType } from '@drift-labs/sdk';
+
+if (SwiftClient.isSupportedOrderType(OrderType.MARKET)) {
+  // Submit via Swift
+  submitSwiftOrder();
+} else {
+  // Use standard on-chain submission
+  submitOnChainOrder();
+}
+```
+
+## Types
+
+### SwiftOrderEvent
+
+```typescript
+type SwiftOrderEvent =
+  | SwiftOrderSentEvent
+  | SwiftOrderConfirmedEvent  
+  | SwiftOrderErroredEvent;
+
+interface SwiftOrderSentEvent {
+  type: 'sent';
+  hash: string;
+}
+
+interface SwiftOrderConfirmedEvent {
+  type: 'confirmed';
+  hash: string;
+  orderId: string;
+}
+
+interface SwiftOrderErroredEvent {
+  type: 'errored' | 'expired';
+  hash: string;
+  message?: string;
+  status?: number;
+}
+```
+
+### ClientResponse
+
+```typescript
+type ClientResponse<T = void> = Promise<{
+  success: boolean;
+  body?: T;
+  message?: string;
+  status?: number;
+}>;
+```
+
+## Advanced Usage
+
+### Order Submission with Retry Logic
+
+```typescript
+import { retry, catchError } from 'rxjs/operators';
+import { throwError } from 'rxjs';
+
+const orderStream = SwiftClient.sendAndConfirmSwiftOrder(
+  marketIndex,
+  marketType,
+  message,
+  signature,
+  takerPubkey,
+  30000,
+  signingAuthority
+).pipe(
+  retry({
+    count: 3,
+    delay: 1000 // 1 second between retries
+  }),
+  catchError(error => {
+    console.error('Order failed after 3 retries');
+    return throwError(() => error);
+  })
+);
+```
+
+### Multiple Simultaneous Orders
+
+```typescript
+import { forkJoin } from 'rxjs';
+
+const orders = [
+  { marketIndex: 0, message: msg1, signature: sig1 },
+  { marketIndex: 1, message: msg2, signature: sig2 },
+  { marketIndex: 2, message: msg3, signature: sig3 }
+];
+
+const orderStreams = orders.map(order => 
+  SwiftClient.sendAndConfirmSwiftOrder(
+    order.marketIndex,
+    MarketType.PERP,
+    order.message,
+    order.signature,
+    takerPubkey,
+    30000,
+    signingAuthority
+  )
+);
+
+// Wait for all orders to complete
+forkJoin(orderStreams).subscribe(results => {
+  console.log('All orders completed:', results);
+});
+```
+
+### Order Status Tracking UI
+
+```typescript
+import { useState } from 'react';
+
+function OrderSubmissionComponent() {
+  const [status, setStatus] = useState('idle');
+  const [orderId, setOrderId] = useState(null);
+  
+  const submitOrder = () => {
+    setStatus('sending');
+    
+    SwiftClient.sendAndConfirmSwiftOrderWS(
+      connection,
+      client,
+      marketIndex,
+      marketType,
+      message,
+      signature,
+      takerPubkey,
+      signedMsgUserOrdersAccountPubkey,
+      signedMsgOrderUuid,
+      30000,
+      signingAuthority
+    ).subscribe({
+      next: (event) => {
+        switch (event.type) {
+          case 'sent':
+            setStatus('confirming');
+            break;
+          case 'confirmed':
+            setStatus('confirmed');
+            setOrderId(event.orderId);
+            break;
+          case 'errored':
+          case 'expired':
+            setStatus('failed');
+            break;
+        }
+      },
+      error: () => setStatus('failed')
+    });
+  };
+  
+  return (
+    <div>
+      <button onClick={submitOrder}>Submit Order</button>
+      <p>Status: {status}</p>
+      {orderId && <p>Order ID: {orderId}</p>}
+    </div>
+  );
+}
+```
+
+### Graceful Fallback Pattern
+
+```typescript
+async function submitOrderWithFallback(
+  orderParams: any
+) {
+  // Check Swift health first
+  const isHealthy = await SwiftClient.isSwiftServerHealthy();
+  
+  if (!isHealthy || !SwiftClient.isSupportedOrderType(orderParams.orderType)) {
+    console.log('Using on-chain order submission');
+    return submitOnChainOrder(orderParams);
+  }
+  
+  return new Promise((resolve, reject) => {
+    SwiftClient.sendAndConfirmSwiftOrder(
+      orderParams.marketIndex,
+      orderParams.marketType,
+      orderParams.message,
+      orderParams.signature,
+      orderParams.takerPubkey,
+      30000,
+      orderParams.signingAuthority
+    ).subscribe({
+      next: (event) => {
+        if (event.type === 'confirmed') {
+          resolve(event.orderId);
+        } else if (event.type === 'errored' || event.type === 'expired') {
+          reject(new Error(event.message));
+        }
+      },
+      error: reject
+    });
+  });
+}
+```
+
+## Performance Optimization
+
+### URL Caching
+
+The SwiftClient automatically caches constructed URLs (max 200 entries) to reduce string concatenation overhead:
+
+```typescript
+// Internally cached:
+// - `${baseUrl}/orders`
+// - `${baseUrl}/health`  
+// - `${baseUrl}/confirmation/hash-status?hash=${hash}`
+```
+
+### Confirmation Strategy Comparison
+
+| Method | Latency | Reliability | Resource Usage |
+|--------|---------|-------------|----------------|
+| Polling (`sendAndConfirmSwiftOrder`) | 1-2s | Good | Low |
+| WebSocket (`sendAndConfirmSwiftOrderWS`) | Less than 500ms | Excellent | Medium |
+| Polling + WebSocket (WS method) | Less than 500ms | Best | Medium |
+
+<Tip>
+  Use `sendAndConfirmSwiftOrderWS()` for production applications where confirmation speed and reliability are critical.
+</Tip>
+
+## Error Handling
+
+### Common Error Scenarios
+
+```typescript
+SwiftClient.sendSwiftOrder(...).then(response => {
+  if (!response.success) {
+    switch (response.status) {
+      case 400:
+        console.error('Invalid order parameters:', response.message);
+        break;
+      case 429:
+        console.error('Rate limited, retry later');
+        break;
+      case 500:
+        console.error('Swift server error:', response.message);
+        break;
+      default:
+        console.error('Unknown error:', response.message);
+    }
+  }
+});
+```
+
+### Observable Error Handling
+
+```typescript
+import { timeout, catchError } from 'rxjs/operators';
+import { EMPTY } from 'rxjs';
+
+SwiftClient.sendAndConfirmSwiftOrder(...).pipe(
+  timeout(30000), // Enforce 30s timeout
+  catchError(error => {
+    if (error.name === 'TimeoutError') {
+      console.error('Order confirmation timed out');
+    } else {
+      console.error('Order error:', error);
+    }
+    return EMPTY;
+  })
+).subscribe();
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Drift SDK" icon="code" href="https://github.com/drift-labs/protocol-v2">
+    Core Drift protocol SDK
+  </Card>
+  
+  <Card title="Order Types" icon="list" href="/api/types/order-types">
+    Available order types and parameters
+  </Card>
+</CardGroup>

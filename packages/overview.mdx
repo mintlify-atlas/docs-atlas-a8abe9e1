@@ -1,0 +1,229 @@
+---
+title: 'Packages Overview'
+description: 'An overview of all packages in the Drift Common monorepo'
+icon: 'boxes-stacked'
+---
+
+## Introduction
+
+The Drift Common monorepo contains a suite of shared packages that provide essential functionality for building Drift Protocol applications. These packages are designed to work together seamlessly while maintaining clear separation of concerns.
+
+## Available Packages
+
+<CardGroup cols={3}>
+  <Card title="@drift-labs/common" icon="toolbox" href="/packages/common-ts">
+    Core utilities, clients, and helpers for interacting with Drift Protocol
+  </Card>
+  
+  <Card title="@drift-labs/react" icon="react" href="/packages/react">
+    React components, hooks, and providers for building Drift applications
+  </Card>
+  
+  <Card title="@drift-labs/icons" icon="icons" href="/packages/icons">
+    Comprehensive icon library generated from Figma designs
+  </Card>
+</CardGroup>
+
+## Package Relationships
+
+The packages have the following dependency structure:
+
+```mermaid
+graph TD
+    A[@drift-labs/icons] --> B[@drift-labs/react]
+    C[@drift-labs/common] --> B
+    D[@drift-labs/sdk] --> C
+    D --> B
+    E[@solana/web3.js] --> C
+    E --> B
+```
+
+<Note>
+  All packages depend on `@drift-labs/sdk` and `@solana/web3.js` as peer dependencies.
+</Note>
+
+## Common Features
+
+All packages in this monorepo share these characteristics:
+
+### TypeScript First
+
+Every package is written in TypeScript with full type definitions included:
+
+- Type safety for all exported functions and components
+- IntelliSense support in modern IDEs
+- Compile-time error checking
+
+### ESM/CJS Support
+
+Packages are built to support both module systems:
+
+```json
+{
+  "main": "./lib/index.js",
+  "module": "./lib/esm/index.js",
+  "types": "./lib/index.d.ts"
+}
+```
+
+### Browser Compatibility
+
+All packages include browser-specific builds when needed, with polyfills for Node.js APIs.
+
+## Monorepo Structure
+
+```
+drift-common/
+├── common-ts/          # Core utilities and clients
+│   ├── src/
+│   ├── package.json
+│   └── tsconfig.json
+├── react/              # React components and hooks
+│   ├── src/
+│   ├── package.json
+│   └── tsconfig.json
+├── icons/              # Icon components
+│   ├── src/
+│   ├── package.json
+│   └── tsconfig.json
+└── package.json        # Root package.json
+```
+
+## Development Workflow
+
+### Building Packages
+
+Each package can be built independently:
+
+```bash
+# Build all packages
+bun run build
+
+# Build specific package
+cd common-ts && bun run build
+cd react && bun run build
+cd icons && bun run build
+```
+
+### Linking for Local Development
+
+To use packages locally during development:
+
+```bash
+# In the package directory
+npm link
+
+# In your project
+npm link @drift-labs/common
+npm link @drift-labs/react
+npm link @drift-labs/icons
+```
+
+### Running Tests
+
+```bash
+# Run tests for common-ts
+cd common-ts && bun test
+
+# Run tests with coverage
+cd common-ts && bun test:ci
+```
+
+## Version Management
+
+<Warning>
+  All packages use semantic versioning. When making breaking changes, ensure major version bumps are coordinated across dependent packages.
+</Warning>
+
+Current versions:
+
+- `@drift-labs/common`: v1.0.39
+- `@drift-labs/react`: v1.0.0
+- `@drift-labs/icons`: v1.0.0
+
+## Best Practices
+
+### Import Patterns
+
+Use named imports for better tree-shaking:
+
+```typescript
+// Good
+import { Config, Initialize } from '@drift-labs/common';
+import { useSolBalance, DriftProvider } from '@drift-labs/react';
+import { Add, ChevronDown } from '@drift-labs/icons';
+
+// Avoid
+import * as Common from '@drift-labs/common';
+```
+
+### Peer Dependencies
+
+Always install required peer dependencies:
+
+```bash
+npm install @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0
+```
+
+### TypeScript Configuration
+
+Ensure your `tsconfig.json` includes:
+
+```json
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  }
+}
+```
+
+## Contributing
+
+For detailed contribution guidelines, see the [Contributing Guide](/CONTRIBUTING).
+
+### Package-Specific Guidelines
+
+<AccordionGroup>
+  <Accordion title="Adding to @drift-labs/common">
+    - Ensure utilities are framework-agnostic
+    - Add tests for all new functionality
+    - Update exports in `src/index.ts`
+    - Document all public APIs
+  </Accordion>
+  
+  <Accordion title="Adding to @drift-labs/react">
+    - Follow React hooks best practices
+    - Add prop type documentation
+    - Ensure components are accessible
+    - Test with React 19
+  </Accordion>
+  
+  <Accordion title="Adding to @drift-labs/icons">
+    - Icons are auto-generated from Figma
+    - Use the `bun icons` script to regenerate
+    - Maintain consistent naming conventions
+    - Test icon rendering
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Get Started with Common" icon="code" href="/packages/common-ts">
+    Explore utilities and clients
+  </Card>
+  
+  <Card title="Build with React" icon="react" href="/packages/react">
+    Learn about hooks and components
+  </Card>
+  
+  <Card title="Use Icons" icon="palette" href="/packages/icons">
+    Browse the icon library
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="/api-reference">
+    View complete API docs
+  </Card>
+</CardGroup>

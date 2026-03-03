@@ -1,0 +1,317 @@
+---
+title: 'Token Utilities'
+description: 'SPL token address and account management utilities'
+---
+
+Token utilities provide helper functions for working with SPL tokens, including getting associated token addresses, creating token accounts, and handling SOL vs token distinctions.
+
+## Import
+
+```typescript
+import {
+  getTokenAddress,
+  getTokenAddressForDepositAndWithdraw,
+  getTokenAccount,
+  createTokenAccountIx,
+  TOKEN_PROGRAM_ID,
+  createTransferCheckedInstruction
+} from '@drift/common';
+```
+
+## Functions
+
+### getTokenAddress
+
+Get the associated token address for a given mint and user.
+
+<ParamField path="mintAddress" type="string" required>
+  The SPL token mint address
+</ParamField>
+
+<ParamField path="userPubKey" type="string" required>
+  The user's wallet public key
+</ParamField>
+
+<ResponseField name="tokenAddress" type="Promise<PublicKey>">
+  The associated token account address
+</ResponseField>
+
+```typescript
+import { getTokenAddress } from '@drift/common';
+
+const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const userWallet = 'YourWalletPublicKey...';
+
+const tokenAddress = await getTokenAddress(usdcMint, userWallet);
+console.log('Token Address:', tokenAddress.toString());
+```
+
+### getTokenAddressForDepositAndWithdraw
+
+Get the associated token address for deposits and withdrawals. For SOL, returns the user's wallet address instead of a token account.
+
+<ParamField path="mintAddress" type="PublicKey" required>
+  The SPL token mint address
+</ParamField>
+
+<ParamField path="authorityPubKey" type="PublicKey" required>
+  The authority's public key (usually the user's wallet)
+</ParamField>
+
+<ParamField path="tokenProgram" type="PublicKey" default="TOKEN_PROGRAM_ID">
+  The token program ID (use TOKEN_2022_PROGRAM_ID for Token-2022 tokens)
+</ParamField>
+
+<ResponseField name="tokenAddress" type="Promise<PublicKey>">
+  The token account address, or wallet address for SOL
+</ResponseField>
+
+```typescript
+import { getTokenAddressForDepositAndWithdraw } from '@drift/common';
+import { PublicKey } from '@solana/web3.js';
+import { WRAPPED_SOL_MINT } from '@drift-labs/sdk';
+
+const userWallet = new PublicKey('YourWalletPublicKey...');
+
+// For SOL deposits/withdrawals, returns the wallet address
+const solAddress = await getTokenAddressForDepositAndWithdraw(
+  WRAPPED_SOL_MINT,
+  userWallet
+);
+console.log('SOL Address:', solAddress.toString()); // Same as userWallet
+
+// For other tokens, returns the associated token account
+const usdcMint = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+const usdcAddress = await getTokenAddressForDepositAndWithdraw(
+  usdcMint,
+  userWallet
+);
+console.log('USDC Token Account:', usdcAddress.toString());
+```
+
+### getTokenAccount
+
+Get the token account for a given mint and user, including account data.
+
+<ParamField path="connection" type="Connection" required>
+  Solana RPC connection
+</ParamField>
+
+<ParamField path="mintAddress" type="string" required>
+  The SPL token mint address
+</ParamField>
+
+<ParamField path="userPubKey" type="string" required>
+  The user's wallet public key
+</ParamField>
+
+<ResponseField name="pubkey" type="PublicKey">
+  The token account public key
+</ResponseField>
+
+<ResponseField name="account" type="AccountInfo<ParsedAccountData>">
+  The token account data
+</ResponseField>
+
+```typescript
+import { getTokenAccount } from '@drift/common';
+import { Connection } from '@solana/web3.js';
+
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+const usdcMint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const userWallet = 'YourWalletPublicKey...';
+
+const tokenAccount = await getTokenAccount(
+  connection,
+  usdcMint,
+  userWallet
+);
+
+console.log('Token Account:', tokenAccount.pubkey.toString());
+console.log('Account Data:', tokenAccount.account.data);
+```
+
+### createTokenAccountIx
+
+Create a transaction instruction to create an associated token account.
+
+<ParamField path="owner" type="PublicKey" required>
+  The owner of the token account
+</ParamField>
+
+<ParamField path="mintAddress" type="PublicKey" required>
+  The SPL token mint address
+</ParamField>
+
+<ParamField path="payer" type="PublicKey">
+  The payer for the account creation (defaults to owner)
+</ParamField>
+
+<ResponseField name="instruction" type="Promise<TransactionInstruction>">
+  Transaction instruction to create the associated token account
+</ResponseField>
+
+```typescript
+import { createTokenAccountIx } from '@drift/common';
+import { PublicKey, Transaction } from '@solana/web3.js';
+
+const owner = new PublicKey('OwnerPublicKey...');
+const usdcMint = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+
+// Create instruction
+const createIx = await createTokenAccountIx(owner, usdcMint);
+
+// Add to transaction
+const tx = new Transaction().add(createIx);
+
+// Or specify different payer
+const payer = new PublicKey('PayerPublicKey...');
+const createIxWithPayer = await createTokenAccountIx(
+  owner,
+  usdcMint,
+  payer
+);
+```
+
+## Re-exported SPL Token Functions
+
+The following functions are re-exported from `@solana/spl-token` for convenience:
+
+### TOKEN_PROGRAM_ID
+
+```typescript
+import { TOKEN_PROGRAM_ID } from '@drift/common';
+
+console.log(TOKEN_PROGRAM_ID.toString());
+// TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+```
+
+### createTransferCheckedInstruction
+
+Create a transfer instruction with token amount verification.
+
+```typescript
+import { createTransferCheckedInstruction, TOKEN_PROGRAM_ID } from '@drift/common';
+import { PublicKey } from '@solana/web3.js';
+
+const source = new PublicKey('SourceTokenAccount...');
+const mint = new PublicKey('MintAddress...');
+const destination = new PublicKey('DestinationTokenAccount...');
+const owner = new PublicKey('OwnerPublicKey...');
+
+const transferIx = createTransferCheckedInstruction(
+  source,
+  mint,
+  destination,
+  owner,
+  1000000, // amount (in token's smallest unit)
+  6 // decimals
+);
+```
+
+## Complete Examples
+
+### Deposit Tokens to Drift
+
+```typescript
+import {
+  getTokenAddressForDepositAndWithdraw,
+  createTokenAccountIx,
+} from '@drift/common';
+import { PublicKey, Connection, Transaction } from '@solana/web3.js';
+import { DriftClient } from '@drift-labs/sdk';
+
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+const userWallet = new PublicKey('YourWalletPublicKey...');
+const usdcMint = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+
+// Get or create token account
+const tokenAddress = await getTokenAddressForDepositAndWithdraw(
+  usdcMint,
+  userWallet
+);
+
+// Check if account exists, if not create it
+const accountInfo = await connection.getAccountInfo(tokenAddress);
+if (!accountInfo) {
+  const createIx = await createTokenAccountIx(userWallet, usdcMint);
+  const tx = new Transaction().add(createIx);
+  // ... sign and send transaction
+}
+
+// Proceed with deposit
+const driftClient = new DriftClient({...});
+const depositAmount = 1000 * 1e6; // 1000 USDC
+await driftClient.deposit(
+  depositAmount,
+  0, // market index
+  tokenAddress
+);
+```
+
+### Handle SOL vs SPL Tokens
+
+```typescript
+import { getTokenAddressForDepositAndWithdraw } from '@drift/common';
+import { PublicKey } from '@solana/web3.js';
+import { WRAPPED_SOL_MINT } from '@drift-labs/sdk';
+
+async function getDepositAddress(
+  mint: PublicKey,
+  wallet: PublicKey
+): Promise<PublicKey> {
+  // This function handles both SOL and SPL tokens automatically
+  const address = await getTokenAddressForDepositAndWithdraw(mint, wallet);
+  
+  if (mint.equals(WRAPPED_SOL_MINT)) {
+    console.log('Using SOL - wallet address:', address.toString());
+  } else {
+    console.log('Using SPL token - ATA address:', address.toString());
+  }
+  
+  return address;
+}
+
+const wallet = new PublicKey('YourWalletPublicKey...');
+
+// For SOL deposits
+const solAddress = await getDepositAddress(WRAPPED_SOL_MINT, wallet);
+
+// For USDC deposits
+const usdcMint = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+const usdcAddress = await getDepositAddress(usdcMint, wallet);
+```
+
+### Working with Token-2022 Tokens
+
+```typescript
+import { getTokenAddressForDepositAndWithdraw } from '@drift/common';
+import { PublicKey } from '@solana/web3.js';
+import { TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
+
+const token2022Mint = new PublicKey('Token2022MintAddress...');
+const userWallet = new PublicKey('YourWalletPublicKey...');
+
+// Use TOKEN_2022_PROGRAM_ID for Token-2022 tokens
+const tokenAddress = await getTokenAddressForDepositAndWithdraw(
+  token2022Mint,
+  userWallet,
+  TOKEN_2022_PROGRAM_ID
+);
+
+console.log('Token-2022 Account:', tokenAddress.toString());
+```
+
+## Related Constants
+
+```typescript
+import { WRAPPED_SOL_MINT } from '@drift-labs/sdk';
+
+// Native SOL mint address
+console.log(WRAPPED_SOL_MINT.toString());
+// So11111111111111111111111111111111111111112
+```
+
+## Source Code
+
+Location: `~/workspace/source/common-ts/src/utils/token.ts`

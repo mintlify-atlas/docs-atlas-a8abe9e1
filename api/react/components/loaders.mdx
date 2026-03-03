@@ -1,0 +1,252 @@
+---
+title: Loader Components
+description: Loading indicators and progress bars for async states
+---
+
+## Overview
+
+Loader components provide visual feedback for asynchronous operations and progress tracking. These components are designed to be lightweight and easily integrated into various UI contexts.
+
+## Components
+
+### InlineLoadingBar
+
+A compact, animated loading indicator ideal for inline contexts and table loading states.
+
+**Props:**
+
+This component accepts no props - it's a self-contained loading indicator.
+
+**Features:**
+
+- Fixed dimensions: 40px wide by 10px tall
+- Smooth ease-in-out animation
+- Infinite loop animation
+- Border and rounded corners for visual polish
+- Uses CSS animation for performance
+
+**Example:**
+
+```tsx
+import { InlineLoadingBar } from '@drift/common/react';
+
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center">
+      <InlineLoadingBar />
+    </div>
+  );
+}
+```
+
+**In Table Context:**
+
+```tsx
+import { TableSkeleton, InlineLoadingBar } from '@drift/common/react';
+
+function DataTable({ loading }) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center w-full my-8">
+        <InlineLoadingBar />
+      </div>
+    );
+  }
+  
+  return <TableSkeleton /* ... */ />;
+}
+```
+
+**With TableSkeleton:**
+
+```tsx
+<TableSkeleton
+  loading={isLoading}
+  top={<HeaderRow>...</HeaderRow>}
+  middle={<BodyRow>...</BodyRow>}
+/>
+// TableSkeleton automatically shows InlineLoadingBar when loading={true}
+```
+
+**Source:** ~/workspace/source/react/src/components/Loaders/InlineLoadingBar.tsx:3
+
+### ProgressBarThreeColor
+
+A multi-segment progress bar that displays progress across three color zones (green, red, and blue background).
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `firstProgress` | `number` | - | **Required.** Percentage for first segment (green) |
+| `secondProgress` | `number` | - | **Required.** Percentage for second segment (red) |
+
+**Features:**
+
+- Three color segments: green, red, and blue (remaining)
+- Smooth rounded progress bar
+- Percentage-based width calculation
+- Full width responsive design
+
+**Example:**
+
+```tsx
+import { ProgressBarThreeColor } from '@drift/common/react';
+
+function TaskProgress() {
+  return (
+    <ProgressBarThreeColor 
+      firstProgress={60}  // 60% complete (green)
+      secondProgress={25} // 25% in progress (red)
+      // Remaining 15% shows as blue background
+    />
+  );
+}
+```
+
+**Dynamic Progress:**
+
+```tsx
+function DynamicProgress({ completed, inProgress }) {
+  return (
+    <div className="w-full space-y-2">
+      <div className="flex justify-between text-sm">
+        <span>Completed: {completed}%</span>
+        <span>In Progress: {inProgress}%</span>
+        <span>Remaining: {100 - completed - inProgress}%</span>
+      </div>
+      <ProgressBarThreeColor 
+        firstProgress={completed}
+        secondProgress={inProgress}
+      />
+    </div>
+  );
+}
+```
+
+**Multiple Progress Bars:**
+
+```tsx
+function MultipleMetrics({ metrics }) {
+  return (
+    <div className="space-y-4">
+      {metrics.map((metric) => (
+        <div key={metric.id}>
+          <div className="text-sm font-medium mb-1">{metric.label}</div>
+          <ProgressBarThreeColor
+            firstProgress={metric.success}
+            secondProgress={metric.warning}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+**Source:** ~/workspace/source/react/src/components/Loaders/ProgressBarThreeColor.tsx:1
+
+## Color Scheme
+
+### InlineLoadingBar
+
+- Border: `border-darkBlue-80`
+- Fill: `bg-static-emphasized`
+- Background: Transparent
+
+### ProgressBarThreeColor
+
+- First segment (green): `bg-green-50`
+- Second segment (red): `bg-red-50`
+- Remaining/background (blue): `bg-darkBlue-50`
+
+## Animation Details
+
+### InlineLoadingBar
+
+The component uses inline CSS animation styles:
+
+```tsx
+style={{
+  animationName: 'progress-loading',
+  animationDuration: '1000ms',
+  animationTimingFunction: 'ease-in-out',
+  animationPlayState: 'running',
+  animationIterationCount: 'infinite',
+}}
+```
+
+The `progress-loading` animation is defined in `inlineLoading.css`.
+
+## Use Cases
+
+### InlineLoadingBar
+
+- Table loading states (used by `TableSkeleton`)
+- Inline form submission feedback
+- Card content loading
+- Small UI sections awaiting data
+
+### ProgressBarThreeColor
+
+- Task completion tracking with multiple states
+- Resource usage indicators (e.g., storage, bandwidth)
+- Multi-phase progress tracking
+- Success/warning/remaining visualizations
+- Test result summaries (passed/failed/pending)
+
+## Styling
+
+Both components use Tailwind CSS utility classes for styling:
+
+```tsx
+// InlineLoadingBar has fixed styling
+<div className="block w-[40px] h-[10px] rounded-[5px] ...">
+
+// ProgressBarThreeColor uses full width
+<div className="w-full h-1.5 bg-darkBlue-50 rounded-full ...">
+```
+
+To customize dimensions, wrap in a container:
+
+```tsx
+<div className="w-32"> {/* Custom width container */}
+  <InlineLoadingBar />
+</div>
+```
+
+## Accessibility
+
+Consider adding ARIA attributes for screen readers:
+
+```tsx
+<div role="status" aria-live="polite" aria-label="Loading">
+  <InlineLoadingBar />
+</div>
+
+<div 
+  role="progressbar" 
+  aria-valuenow={firstProgress + secondProgress}
+  aria-valuemin="0"
+  aria-valuemax="100"
+>
+  <ProgressBarThreeColor 
+    firstProgress={firstProgress}
+    secondProgress={secondProgress}
+  />
+</div>
+```
+
+## Performance
+
+Both components are optimized for performance:
+
+- CSS animations (hardware accelerated)
+- No JavaScript-driven animation loops
+- Minimal re-renders
+- Small bundle size
+
+## Related Components
+
+- `TableSkeleton` - Uses `InlineLoadingBar` internally
+- Table components - Often used together for loading states

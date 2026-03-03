@@ -1,0 +1,407 @@
+---
+title: 'Drift Client Architecture'
+description: 'Learn about the Drift client types and their usage patterns'
+---
+
+## Overview
+
+Drift Common provides two primary client implementations for interacting with the Drift protocol:
+
+- **AuthorityDrift** - For user-facing applications with wallet integration
+- **CentralServerDrift** - For server-side applications and APIs
+
+Both clients wrap the core `DriftClient` from `@drift-labs/sdk` and provide specialized functionality for different use cases.
+
+## AuthorityDrift Client
+
+The `AuthorityDrift` client is designed for applications that need to subscribe to all user accounts for a given authority (wallet). This is ideal for:
+
+- Trading UIs and web applications
+- Wallet applications with Drift integration
+- Real-time user account monitoring
+
+### Key Features
+
+**Real-time Subscriptions**
+- Subscribes to all user accounts for a wallet authority
+- Continuous market data updates via polling and websockets
+- Oracle price and mark price caching
+- L2 orderbook management via websocket
+
+**Trading Operations**
+- Deposits and withdrawals
+- Perpetual market orders (market and limit)
+- Spot market swaps
+- Order management (edit, cancel)
+- PnL settlement and funding payments
+
+**Price Data Management**
+- Mark price cache with websocket and polling sources
+- Oracle price cache from DriftClient subscriptions
+- Priority fee tracking for optimized transaction costs
+
+### Basic Usage
+
+```typescript
+import { AuthorityDrift } from '@drift/common';
+import { Connection } from '@solana/web3.js';
+
+// Initialize the client
+const authorityDrift = new AuthorityDrift({
+  solanaRpcEndpoint: 'https://api.mainnet-beta.solana.com',
+  driftEnv: 'mainnet-beta',
+  wallet: myWallet, // IWalletV2 instance
+  tradableMarkets: [], // Optional: filter markets to subscribe to
+  selectedTradeMarket: marketId, // Optional: primary trading market
+});
+
+// Subscribe to all data sources
+await authorityDrift.subscribe();
+
+// Access real-time price data
+const markPrices = authorityDrift.markPriceCache;
+const oraclePrices = authorityDrift.oraclePriceCache;
+const userAccounts = authorityDrift.userAccountCache;
+
+// Listen for updates
+authorityDrift.onMarkPricesUpdate((prices) => {
+  console.log('Mark prices updated:', prices);
+});
+
+authorityDrift.onUserAccountUpdate((account) => {
+  console.log('User account updated:', account);
+});
+
+// Execute trades
+const txSig = await authorityDrift.openPerpOrder({
+  marketIndex: 0, // SOL-PERP
+  amount: new BN(1_000_000_000), // 1 SOL
+  direction: PositionDirection.LONG,
+  orderType: OrderType.MARKET,
+});
+
+// Clean up when done
+await authorityDrift.unsubscribe();
+```
+
+See AuthorityDrift/index.ts for implementation details.
+
+### Data Caching
+
+The `AuthorityDrift` client maintains three key data caches:
+
+**Mark Price Cache**
+- Sources: Websocket DLOB subscriber (active market), Polling DLOB server (other markets)
+- Updated based on market activity and user positions
+- Accessible via `authorityDrift.markPriceCache`
+
+**Oracle Price Cache**
+- Sources: DriftClient oracle subscriptions, Polling DLOB server
+- Real-time oracle price updates
+- Accessible via `authorityDrift.oraclePriceCache`
+
+**User Account Cache**
+- Stores fetched user account data for all sub-accounts
+- Enhanced with oracle and mark price data
+- Accessible via `authorityDrift.userAccountCache`
+
+### Subscription Management
+
+The client optimizes polling based on user activity:
+
+```typescript
+// Update the active trading market for optimized polling
+authorityDrift.updateSelectedTradeMarket(newMarketId);
+
+// Update wallet authority and resubscribe
+await authorityDrift.updateAuthority(newWallet, subAccountId);
+```
+
+## CentralServerDrift Client
+
+The `CentralServerDrift` client is designed for server-side applications that need to fetch user data on-demand while maintaining continuous market data subscriptions. Perfect for:
+
+- API servers
+- Transaction generation services
+- Backend trading systems
+
+### Key Features
+
+**On-Demand User Data**
+- Fetches user account data only when needed
+- No persistent user subscriptions
+- Uses `OneShotUserAccountSubscriber` for efficient one-time reads
+
+**Market Data Subscriptions**
+- Continuous subscription to specified markets
+- Efficient account loader with polling
+- Priority fee tracking
+
+**Transaction Generation**
+- Creates unsigned transactions for client signing
+- Context wrapper for proper authority management
+- Support for all Drift operations
+
+### Basic Usage
+
+```typescript
+import { CentralServerDrift } from '@drift/common';
+import { PublicKey, BN } from '@drift-labs/sdk';
+
+// Initialize the server client
+const serverDrift = new CentralServerDrift({
+  solanaRpcEndpoint: 'https://api.mainnet-beta.solana.com',
+  driftEnv: 'mainnet-beta',
+  supportedPerpMarkets: [0, 1, 2], // SOL, BTC, ETH
+  supportedSpotMarkets: [0, 1], // USDC, SOL
+  additionalDriftClientConfig: {
+    txVersion: 0,
+    txParams: {
+      computeUnits: 200000,
+      computeUnitsPrice: 1000,
+    },
+  },
+});
+
+// Subscribe to market data
+await serverDrift.subscribe();
+
+// Create a deposit transaction for a user
+const userAccountPubkey = new PublicKey('...');
+const depositTxn = await serverDrift.getDepositTxn(
+  userAccountPubkey,
+  new BN(1_000_000), // 1 USDC
+  0 // USDC market index
+);
+
+// Return transaction to client for signing
+return depositTxn;
+```
+
+See CentralServerDrift/index.ts:66-837 for implementation details.
+
+### Transaction Generation
+
+The `CentralServerDrift` client provides methods to generate transactions for various operations:
+
+**Account Management**
+```typescript
+// Create user account and deposit
+const { transaction, userAccountPublicKey, subAccountId } = 
+  await serverDrift.getCreateAndDepositTxn(
+    authority,
+    amount,
+    spotMarketIndex,
+    {
+      referrerName: 'my-referrer',
+      accountName: 'Main Account',
+    }
+  );
+
+// Delete user account
+const deleteTxn = await serverDrift.getDeleteUserTxn(userAccountPubkey);
+```
+
+**Deposits & Withdrawals**
+```typescript
+// Deposit collateral
+const depositTxn = await serverDrift.getDepositTxn(
+  userAccountPubkey,
+  amount,
+  spotMarketIndex
+);
+
+// Withdraw collateral
+const withdrawTxn = await serverDrift.getWithdrawTxn(
+  userAccountPubkey,
+  amount,
+  spotMarketIndex,
+  { isBorrow: false, isMax: false }
+);
+```
+
+**Trading Operations**
+```typescript
+// Open perpetual market order
+await serverDrift.getOpenPerpMarketOrderTxn({
+  userAccountPublicKey,
+  marketIndex: 0,
+  amount: new BN(1_000_000_000),
+  direction: PositionDirection.LONG,
+  useSwift: false, // Set to true for Swift (gasless) orders
+});
+
+// Open limit order
+await serverDrift.getOpenPerpNonMarketOrderTxn({
+  userAccountPublicKey,
+  marketIndex: 0,
+  amount: new BN(1_000_000_000),
+  direction: PositionDirection.LONG,
+  orderType: OrderType.LIMIT,
+  limitPrice: new BN(50_000_000), // $50
+});
+
+// Edit existing order
+const editTxn = await serverDrift.getEditOrderTxn(
+  userAccountPubkey,
+  orderId,
+  {
+    newLimitPrice: new BN(51_000_000),
+    newBaseAmount: new BN(2_000_000_000),
+  }
+);
+
+// Cancel orders
+const cancelTxn = await serverDrift.getCancelOrdersTxn(
+  userAccountPubkey,
+  [orderId1, orderId2]
+);
+
+// Cancel all orders
+const cancelAllTxn = await serverDrift.getCancelAllOrdersTxn(
+  userAccountPubkey,
+  MarketType.PERP, // Optional: filter by market type
+  marketIndex, // Optional: filter by market
+  direction // Optional: filter by direction
+);
+```
+
+**Settlement Operations**
+```typescript
+// Settle funding payments
+const settleFundingTxn = await serverDrift.getSettleFundingTxn(
+  userAccountPubkey
+);
+
+// Settle PnL for specific markets
+const settlePnlTxn = await serverDrift.getSettlePnlTxn(
+  userAccountPubkey,
+  [0, 1] // Market indexes
+);
+```
+
+**Swaps**
+```typescript
+// Swap between spot markets using Jupiter
+const swapTxn = await serverDrift.getSwapTxn(
+  userAccountPubkey,
+  0, // From USDC
+  1, // To SOL
+  new BN(100_000_000), // 100 USDC
+  {
+    slippageBps: 50, // 0.5% slippage
+    swapMode: 'ExactIn',
+  }
+);
+```
+
+### Context Wrapper Pattern
+
+The `CentralServerDrift` client uses a context wrapper pattern to manage DriftClient state:
+
+```typescript
+private async driftClientContextWrapper<T>(
+  userAccountPublicKey: PublicKey,
+  operation: (user: User) => Promise<T>,
+  externalWallet?: PublicKey
+): Promise<T>
+```
+
+This handles:
+- User creation and subscription
+- Authority management
+- Wallet replacement for correct transaction signing
+- Cleanup and state restoration
+
+See CentralServerDrift/index.ts:221-298 for driftClientContextWrapper implementation.
+
+### Fetching User Data
+
+```typescript
+// Get a User object for reading account data
+const user = await serverDrift.getUser(userAccountPubkey);
+
+// Access user account data
+const userAccount = user.getUserAccount();
+const positions = user.getPerpPositions();
+const spotPositions = user.getSpotPositions();
+const orders = user.getOpenOrders();
+
+// Don't forget to unsubscribe when done
+await user.unsubscribe();
+```
+
+## Market Access
+
+Both clients provide access to market data through the DriftClient:
+
+```typescript
+// Access the underlying DriftClient
+const driftClient = authorityDrift.driftClient;
+
+// Get market accounts
+const perpMarket = driftClient.getPerpMarketAccount(0);
+const spotMarket = driftClient.getSpotMarketAccount(0);
+
+// Access oracle data
+const oracleData = driftClient.getOracleDataForPerpMarket(0);
+```
+
+### CentralServerDrift Market Queries
+
+The `CentralServerDrift` client includes a `markets` property for convenient market queries:
+
+```typescript
+// Access market information
+const markets = serverDrift.markets;
+
+// Get available markets
+const perpMarkets = markets.getPerpMarkets();
+const spotMarkets = markets.getSpotMarkets();
+```
+
+## Priority Fees
+
+Both clients include priority fee management:
+
+```typescript
+// Get transaction parameters with dynamic priority fees
+const txParams = authorityDrift.getTxParams({
+  computeUnits: 300000, // Override compute units
+});
+
+// Use in transactions
+const depositTxn = await serverDrift.getDepositTxn(
+  userAccountPubkey,
+  amount,
+  spotMarketIndex,
+  { txParams }
+);
+```
+
+Priority fees are calculated based on:
+- Current network conditions via `PriorityFeeSubscriber`
+- High activity market accounts
+- Configurable priority fee methods
+
+See blockchain.ts:29-33 for high activity accounts.
+
+## Choosing the Right Client
+
+**Use AuthorityDrift when:**
+- Building a trading UI or wallet application
+- Need real-time user account updates
+- Want continuous price feed subscriptions
+- Require orderbook data via websocket
+
+**Use CentralServerDrift when:**
+- Building an API server or backend service
+- Need to generate transactions for multiple users
+- Want to minimize memory and connection overhead
+- Only need on-demand user data access
+
+## Next Steps
+
+- Learn about [Configuration](/concepts/configuration) options
+- Explore [Environment Constants](/concepts/environment) for different networks
+- Check the [API Reference](/api/drift/overview) for detailed method signatures

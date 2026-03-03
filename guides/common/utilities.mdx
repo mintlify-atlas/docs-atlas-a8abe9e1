@@ -1,0 +1,558 @@
+---
+title: Using Utility Functions
+description: Learn how to use utility functions and helpers in the Drift Common package
+---
+
+The Drift Common package provides a comprehensive set of utility functions for common operations in trading applications. This guide covers the main utility modules and their usage.
+
+## COMMON_UTILS
+
+The `COMMON_UTILS` object contains a collection of helper functions for market data, math operations, and data manipulation.
+
+### Market Data Utilities
+
+#### Getting Open Interest
+
+```typescript
+import { COMMON_UTILS } from '@drift-labs/common';
+import { MarketType, DriftClient } from '@drift-labs/sdk';
+
+const marketIndex = 0; // SOL-PERP
+const marketType = MarketType.PERP;
+
+// Get current open interest in quote currency (USD)
+const openInterest = COMMON_UTILS.getCurrentOpenInterestForMarket(
+  marketIndex,
+  marketType,
+  driftClient
+);
+
+console.log(`Open Interest: $${openInterest.toLocaleString()}`);
+```
+
+#### Getting Deposit APR
+
+```typescript
+import { MarketType } from '@drift-labs/sdk';
+
+// Get deposit APR for a spot market (in percent)
+const marketIndex = 1; // USDC spot market
+const depositApr = COMMON_UTILS.getDepositAprForMarket(
+  marketIndex,
+  MarketType.SPOT,
+  driftClient
+);
+
+console.log(`Deposit APR: ${depositApr.toFixed(2)}%`);
+```
+
+#### Getting Borrow APR
+
+```typescript
+// Get borrow APR for a spot market (in percent)
+const borrowApr = COMMON_UTILS.getBorrowAprForMarket(
+  marketIndex,
+  MarketType.SPOT,
+  driftClient
+);
+
+console.log(`Borrow APR: ${borrowApr.toFixed(2)}%`);
+```
+
+#### Getting Total Borrows and Deposits
+
+```typescript
+import { MainnetSpotMarkets } from '@drift-labs/sdk';
+
+const usdcMarket = MainnetSpotMarkets[1]; // USDC
+
+// Get total borrows
+const totalBorrows = COMMON_UTILS.getTotalBorrowsForMarket(
+  usdcMarket,
+  driftClient
+);
+
+console.log(`Total Borrows: $${totalBorrows.toLocaleString()}`);
+
+// Get total deposits
+const { totalDepositsBase, totalDepositsQuote } =
+  COMMON_UTILS.getTotalDepositsForMarket(usdcMarket, driftClient);
+
+console.log(`Total Deposits: ${totalDepositsBase} USDC ($${totalDepositsQuote})`);
+```
+
+### Mathematical Utilities
+
+#### Number Math
+
+```typescript
+const values = [10, 20, 30, 40, 50];
+
+// Calculate mean
+const mean = COMMON_UTILS.MATH.NUM.mean(values);
+console.log('Mean:', mean); // 30
+
+// Calculate median
+const median = COMMON_UTILS.MATH.NUM.median(values);
+console.log('Median:', median); // 30
+```
+
+#### BN (BigNumber) Math
+
+```typescript
+import { BN } from '@drift-labs/sdk';
+
+const bnValues = [
+  new BN(100),
+  new BN(200),
+  new BN(300),
+  new BN(400),
+  new BN(500),
+];
+
+// Calculate max
+const max = COMMON_UTILS.MATH.BN.bnMax(bnValues);
+console.log('Max:', max.toString()); // "500"
+
+// Calculate min
+const min = COMMON_UTILS.MATH.BN.bnMin(bnValues);
+console.log('Min:', min.toString()); // "100"
+
+// Calculate mean
+const bnMean = COMMON_UTILS.MATH.BN.bnMean(bnValues);
+console.log('Mean:', bnMean.toString()); // "300"
+
+// Calculate median
+const bnMedian = COMMON_UTILS.MATH.BN.bnMedian(bnValues);
+console.log('Median:', bnMedian.toString()); // "300"
+```
+
+#### Z-Score Calculation
+
+```typescript
+// Calculate how many standard deviations a value is from the mean
+const historicalPrices = [100, 102, 98, 105, 97, 103, 99, 101];
+const currentPrice = 110;
+
+const zScore = COMMON_UTILS.calculateZScore(currentPrice, historicalPrices);
+console.log(`Z-Score: ${zScore.toFixed(2)}`);
+// Positive = above mean, Negative = below mean
+```
+
+### Data Manipulation Utilities
+
+#### Chunking Arrays
+
+```typescript
+const items = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+// Split into chunks of 3
+const chunks = COMMON_UTILS.chunks(items, 3);
+console.log(chunks);
+// [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10]]
+```
+
+#### Gluing Arrays
+
+```typescript
+const elements = [1, 2, 3, 4, 5, 6];
+
+// Group every 2 elements together
+const glued = COMMON_UTILS.glueArray(2, elements);
+console.log(glued);
+// [[1, 2], [3, 4], [5, 6]]
+```
+
+#### Fetching Multiple Accounts
+
+```typescript
+import { Connection, PublicKey } from '@solana/web3.js';
+
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+const accounts = [
+  new PublicKey('...'),
+  new PublicKey('...'),
+  // ... many more accounts
+];
+
+// Automatically chunks requests to avoid RPC limits
+const accountInfos = await COMMON_UTILS.getMultipleAccountsInfoChunked(
+  connection,
+  accounts
+);
+
+accountInfos.forEach((info, index) => {
+  if (info) {
+    console.log(`Account ${index}:`, info.data.length, 'bytes');
+  }
+});
+```
+
+### String Utilities
+
+```typescript
+// Convert to snake_case
+const snakeCase = COMMON_UTILS.toSnakeCase('myVariableName');
+console.log(snakeCase); // "my_variable_name"
+
+// Convert to camelCase
+const camelCase = COMMON_UTILS.toCamelCase('my_variable_name');
+console.log(camelCase); // "myVariableName"
+
+// Normalize base asset symbols
+const normalized = COMMON_UTILS.normalizeBaseAssetSymbol('1MSOL');
+console.log(normalized); // "SOL"
+```
+
+### Validation Utilities
+
+```typescript
+// Check if numbers divide exactly (accounting for floating point)
+const dividesExactly = COMMON_UTILS.dividesExactly(10, 5);
+console.log(dividesExactly); // true
+
+const doesNotDivide = COMMON_UTILS.dividesExactly(10, 3);
+console.log(doesNotDivide); // false
+```
+
+## ENUM_UTILS
+
+Utilities for working with Anchor-style enums (objects with a single key).
+
+### Enum Comparison
+
+```typescript
+import { ENUM_UTILS } from '@drift-labs/common';
+import { OrderType } from '@drift-labs/sdk';
+
+const orderType1 = { market: {} };
+const orderType2 = { market: {} };
+const orderType3 = { limit: {} };
+
+// Compare enums
+const isMatch = ENUM_UTILS.match(orderType1, orderType2);
+console.log(isMatch); // true
+
+const isDifferent = ENUM_UTILS.match(orderType1, orderType3);
+console.log(isDifferent); // false
+```
+
+### Enum Conversion
+
+```typescript
+// Convert string to enum object
+const enumObj = ENUM_UTILS.toObj('market');
+console.log(enumObj); // { market: {} }
+
+// Convert enum object to string
+const enumStr = ENUM_UTILS.toStr({ market: {} });
+console.log(enumStr); // "market"
+```
+
+## COMMON_MATH
+
+Math utilities for orderbook calculations.
+
+### Calculating Spread, Bid, Ask, and Mark Price
+
+```typescript
+import { COMMON_MATH } from '@drift-labs/common';
+import { BN, PRICE_PRECISION } from '@drift-labs/sdk';
+
+// Mock L2 orderbook
+const l2 = {
+  bids: [
+    { price: new BN(100).mul(PRICE_PRECISION), size: new BN(10) },
+    { price: new BN(99).mul(PRICE_PRECISION), size: new BN(20) },
+  ],
+  asks: [
+    { price: new BN(101).mul(PRICE_PRECISION), size: new BN(15) },
+    { price: new BN(102).mul(PRICE_PRECISION), size: new BN(25) },
+  ],
+};
+
+const oraclePrice = new BN(100.5).mul(PRICE_PRECISION);
+
+// Calculate all orderbook metrics
+const {
+  bestBidPrice,
+  bestAskPrice,
+  markPrice,
+  spreadQuote,
+  spreadPct,
+} = COMMON_MATH.calculateSpreadBidAskMark(l2, oraclePrice);
+
+console.log({
+  bestBid: bestBidPrice?.div(PRICE_PRECISION).toString(),
+  bestAsk: bestAskPrice?.div(PRICE_PRECISION).toString(),
+  mark: markPrice?.div(PRICE_PRECISION).toString(),
+  spread: spreadQuote?.div(PRICE_PRECISION).toString(),
+  spreadPercent: spreadPct?.toString(),
+});
+```
+
+## Token Utilities
+
+Utilities for working with SPL tokens.
+
+### Getting Token Addresses
+
+```typescript
+import {
+  getTokenAddress,
+  getTokenAddressForDepositAndWithdraw,
+} from '@drift-labs/common';
+import { PublicKey } from '@solana/web3.js';
+import { WRAPPED_SOL_MINT } from '@drift-labs/sdk';
+
+// Get associated token address
+const tokenAddress = await getTokenAddress(
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC mint
+  userPublicKey.toString()
+);
+
+console.log('USDC Token Account:', tokenAddress.toString());
+
+// Get token address for deposits/withdrawals (handles SOL specially)
+const depositAddress = await getTokenAddressForDepositAndWithdraw(
+  WRAPPED_SOL_MINT,
+  userPublicKey
+);
+
+// For SOL, returns the user's public key
+// For other tokens, returns the associated token account
+console.log('Deposit Address:', depositAddress.toString());
+```
+
+### Creating Token Accounts
+
+```typescript
+import { createTokenAccountIx, TOKEN_PROGRAM_ID } from '@drift-labs/common';
+import { PublicKey } from '@solana/web3.js';
+
+const owner = new PublicKey('...');
+const mintAddress = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'); // USDC
+
+// Create instruction to create associated token account
+const createAtaIx = await createTokenAccountIx(owner, mintAddress);
+
+// Add to transaction
+transaction.add(createAtaIx);
+```
+
+### Getting Token Account Info
+
+```typescript
+import { getTokenAccount } from '@drift-labs/common';
+import { Connection } from '@solana/web3.js';
+
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+
+const tokenAccount = await getTokenAccount(
+  connection,
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC mint
+  userPublicKey.toString()
+);
+
+if (tokenAccount) {
+  console.log('Token Account:', tokenAccount.pubkey.toString());
+  console.log('Balance:', tokenAccount.account.data.parsed.info.tokenAmount.uiAmount);
+}
+```
+
+## Helper Classes
+
+### Counter
+
+Simple counter utility:
+
+```typescript
+import { Counter } from '@drift-labs/common';
+
+const counter = new Counter();
+
+counter.increment();
+counter.increment(5);
+
+console.log(counter.get()); // 6
+
+counter.reset();
+console.log(counter.get()); // 0
+```
+
+### Ref
+
+Reference wrapper for mutable values:
+
+```typescript
+import { Ref } from '@drift-labs/common';
+
+const ref = new Ref<number>(10);
+
+console.log(ref.get()); // 10
+
+ref.set(20);
+console.log(ref.get()); // 20
+```
+
+### MultiSwitch
+
+Manage multiple boolean switches with a single aggregated state:
+
+```typescript
+import { MultiSwitch } from '@drift-labs/common';
+
+// Base state is 'off'
+const multiSwitch = new MultiSwitch('off');
+
+// Turn on individual switches
+multiSwitch.switchOn('feature1');
+console.log(multiSwitch.isOn); // true
+
+multiSwitch.switchOn('feature2');
+console.log(multiSwitch.isOn); // true
+
+// Turn off one switch
+multiSwitch.switchOff('feature1');
+console.log(multiSwitch.isOn); // true (feature2 still on)
+
+// Turn off all switches
+multiSwitch.switchOff('feature2');
+console.log(multiSwitch.isOn); // false
+```
+
+### Stopwatch
+
+Simple timing utility:
+
+```typescript
+import { Stopwatch } from '@drift-labs/common';
+
+const stopwatch = new Stopwatch();
+
+stopwatch.start();
+
+// ... do some work
+
+const elapsedMs = stopwatch.getElapsedTime();
+console.log(`Operation took ${elapsedMs}ms`);
+
+stopwatch.stop();
+```
+
+## Serialization Utilities
+
+Utilities for serializing/deserializing objects with BN and PublicKey:
+
+### Encoding Objects
+
+```typescript
+import {
+  encodeStringifiableObject,
+  decodeStringifiableObject,
+} from '@drift-labs/common';
+import { BN, PublicKey } from '@drift-labs/sdk';
+
+const obj = {
+  amount: new BN(1000000),
+  account: new PublicKey('...'),
+  name: 'Test',
+};
+
+// Encode for JSON stringification
+const encoded = encodeStringifiableObject(obj);
+console.log(JSON.stringify(encoded));
+// { "_bgnm_amount": "1000000", "_pbky_account": "...", "name": "Test" }
+
+// Decode back to original types
+const decoded = decodeStringifiableObject(JSON.parse(JSON.stringify(encoded)));
+console.log(decoded.amount instanceof BN); // true
+console.log(decoded.account instanceof PublicKey); // true
+```
+
+## Promise Utilities
+
+### Timed Promises
+
+```typescript
+import { COMMON_UTILS } from '@drift-labs/common';
+
+const fetchData = async () => {
+  // Simulate API call
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return { data: 'result' };
+};
+
+const { promiseResult, promiseTime } = await COMMON_UTILS.timedPromise(
+  fetchData()
+);
+
+console.log('Result:', promiseResult);
+console.log('Took:', promiseTime, 'ms');
+```
+
+### Sleep
+
+```typescript
+import { sleep } from '@drift-labs/common';
+
+// Wait for 1 second
+await sleep(1000);
+
+console.log('1 second has passed');
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Working with BN">
+    Always use BigNum utilities for precise calculations:
+
+    ```typescript
+    import { BigNum, BASE_PRECISION_EXP } from '@drift-labs/sdk';
+
+    // Use BigNum for precise math
+    const amount = BigNum.from(100, BASE_PRECISION_EXP);
+    const doubled = amount.mul(new BigNum(2));
+    ```
+  </Accordion>
+
+  <Accordion title="Performance Optimization">
+    Use chunking for batch operations:
+
+    ```typescript
+    // Instead of fetching all at once
+    const chunks = COMMON_UTILS.chunks(accounts, 100);
+
+    for (const chunk of chunks) {
+      await processChunk(chunk);
+      await sleep(100); // Rate limiting
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Type Safety">
+    Use TypeScript types for better safety:
+
+    ```typescript
+    import type { MarketId, UIEnv } from '@drift-labs/common';
+
+    const marketId: MarketId = {
+      marketIndex: 0,
+      isPerp: true,
+      key: 'perp-0',
+    };
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Client Modules" icon="network-wired" href="/guides/common/clients">
+    Learn about client modules
+  </Card>
+  <Card title="API Reference" icon="book" href="/api/utils/overview">
+    View complete API documentation
+  </Card>
+</CardGroup>

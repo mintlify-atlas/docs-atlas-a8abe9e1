@@ -1,0 +1,350 @@
+---
+title: Table Components
+description: Data table components for building responsive, accessible tables
+---
+
+## Overview
+
+The table component library provides a complete set of primitives for building data tables with support for responsive layouts, custom styling, and loading states.
+
+## Components
+
+### TableSkeleton
+
+The main table container component that provides layout structure, scrolling behavior, and loading states.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `top` | `JSX.Element \| null` | - | Header section (typically HeaderRow) |
+| `middle` | `JSX.Element` | - | Body content (typically BodyRow components) |
+| `bottom` | `JSX.Element` | - | Footer section (optional) |
+| `hideHeadersOnMobile` | `boolean` | `false` | Hide header on mobile viewports |
+| `isMobile` | `boolean` | - | Mobile viewport flag |
+| `noBorder` | `boolean` | `false` | Remove outer border |
+| `noBg` | `boolean` | `false` | Remove background color |
+| `notRounded` | `boolean` | `false` | Remove rounded corners |
+| `fillSpace` | `boolean` | `false` | Fill available vertical space |
+| `autoHeight` | `boolean` | `false` | Automatically adjust height to content |
+| `className` | `string` | - | Custom CSS classes |
+| `innerClassName` | `string` | - | CSS classes for inner container |
+| `loading` | `boolean` | `false` | Show loading indicator |
+| `overflowAuto` | `boolean` | - | Enable auto overflow behavior |
+| `setIsScrollable` | `(isScrollable: boolean) => void` | - | Callback when scroll state changes |
+
+**Example:**
+
+```tsx
+import { TableSkeleton, HeaderRow, BodyRow, HeaderCell, BodyCell } from '@drift/common/react';
+
+function DataTable({ data, loading }) {
+  return (
+    <TableSkeleton
+      loading={loading}
+      fillSpace
+      top={
+        <HeaderRow grid="grid-cols-3">
+          <HeaderCell>Name</HeaderCell>
+          <HeaderCell>Email</HeaderCell>
+          <HeaderCell alignRight>Status</HeaderCell>
+        </HeaderRow>
+      }
+      middle={
+        <>
+          {data.map((row) => (
+            <BodyRow key={row.id} grid="grid-cols-3">
+              <BodyCell>{row.name}</BodyCell>
+              <BodyCell>{row.email}</BodyCell>
+              <BodyCell alignRight>{row.status}</BodyCell>
+            </BodyRow>
+          ))}
+        </>
+      }
+    />
+  );
+}
+```
+
+**Source:** ~/workspace/source/react/src/components/Tables/TableSkeleton.tsx:7
+
+### HeaderRow
+
+Container component for table header cells.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `grid` | `string` | - | **Required.** Tailwind grid classes (e.g., "grid-cols-3") |
+| `className` | `string` | - | Custom CSS classes |
+| `forceBottomBorder` | `boolean` | `false` | Force bottom border rendering |
+| `header` | `boolean` | - | Header style flag |
+| `lastColumnJustify` | `string` | - | Justify content for last column |
+| `id` | `string` | - | Element ID |
+| `addScrollPadding` | `boolean` | `false` | Add padding to account for scrollbar |
+| `children` | `ReactNode` | - | Header cell components |
+
+**Example:**
+
+```tsx
+<HeaderRow grid="grid-cols-4" addScrollPadding>
+  <HeaderCell>Column 1</HeaderCell>
+  <HeaderCell>Column 2</HeaderCell>
+  <HeaderCell>Column 3</HeaderCell>
+  <HeaderCell alignRight>Column 4</HeaderCell>
+</HeaderRow>
+```
+
+**Source:** ~/workspace/source/react/src/components/Tables/HeaderRow.tsx:5
+
+### BodyRow
+
+Container component for table body cells with hover effects.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `grid` | `string` | - | **Required.** Tailwind grid classes |
+| `className` | `string` | - | Custom CSS classes |
+| `forceBottomBorder` | `boolean` | `false` | Force bottom border |
+| `header` | `boolean` | - | Header style flag |
+| `lastColumnJustify` | `string` | - | Justify content for last column |
+| `isDataRow` | `boolean` | - | Adds data-puppet-tag for testing |
+| `noBorder` | `boolean` | `false` | Remove border |
+| `onClick` | `(event: MouseEvent) => void` | - | Click handler |
+| `lastChildNoBorder` | `boolean` | - | Remove border from last child |
+| `strongBottomBorder` | `boolean` | - | Stronger bottom border |
+| `children` | `ReactNode` | - | Body cell components |
+
+**Example:**
+
+```tsx
+<BodyRow 
+  grid="grid-cols-3" 
+  isDataRow
+  onClick={(e) => handleRowClick(row.id)}
+>
+  <BodyCell>{row.name}</BodyCell>
+  <BodyCell>{row.email}</BodyCell>
+  <BodyCell alignRight>{row.status}</BodyCell>
+</BodyRow>
+```
+
+**Source:** ~/workspace/source/react/src/components/Tables/BodyRow.tsx:5
+
+### SummaryRow
+
+Specialized row component for summary or totals rows.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `grid` | `string` | - | **Required.** Tailwind grid classes |
+| `className` | `string` | - | Custom CSS classes |
+| `header` | `boolean` | - | Header style flag |
+| `children` | `ReactNode` | - | Cell components |
+
+**Example:**
+
+```tsx
+<SummaryRow grid="grid-cols-3">
+  <BodyCell>Total</BodyCell>
+  <BodyCell></BodyCell>
+  <BodyCell alignRight>$1,234.56</BodyCell>
+</SummaryRow>
+```
+
+**Source:** ~/workspace/source/react/src/components/Tables/SummaryRow.tsx:5
+
+### HeaderCell
+
+Individual header cell component.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `className` | `string` | - | Custom CSS classes |
+| `alignRight` | `boolean` | `false` | Right-align content |
+| `children` | `ReactNode` | - | Cell content |
+
+**Example:**
+
+```tsx
+<HeaderCell className="font-bold">Name</HeaderCell>
+<HeaderCell alignRight>Amount</HeaderCell>
+```
+
+**Source:** ~/workspace/source/react/src/components/Tables/HeaderCell.tsx:4
+
+### BodyCell
+
+Individual body cell component with flexible layout options.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `className` | `string` | - | Custom CSS classes for outer wrapper |
+| `innerClassName` | `string` | - | Custom CSS classes for inner content |
+| `onClick` | `() => void` | - | Click handler |
+| `dataPuppetTag` | `string` | - | Test automation identifier |
+| `flexCol` | `boolean` | `false` | Use flex column layout |
+| `alignCenter` | `boolean` | `false` | Center-align content |
+| `alignRight` | `boolean` | `false` | Right-align content |
+| `children` | `ReactNode` | - | Cell content |
+
+**Example:**
+
+```tsx
+<BodyCell alignRight onClick={() => handleClick()}>$99.99</BodyCell>
+<BodyCell flexCol alignCenter>
+  <Icon />
+  <span>Label</span>
+</BodyCell>
+```
+
+**Source:** ~/workspace/source/react/src/components/Tables/BodyCell.tsx:4
+
+### TableCellCardValue
+
+Specialized cell component for card-style mobile layouts with label and value.
+
+**Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `value` | `ReactNode` | - | **Required.** Cell value content |
+| `label` | `string` | - | **Required.** Label text |
+| `icon` | `JSX.Element` | - | Optional icon element |
+| `size` | `'xs' \| 'sm' \| 'md' \| 'lg' \| 'xl'` | - | Text size |
+| `highlight` | `boolean` | `false` | Apply highlight styling (larger text) |
+| `isMobileTopRow` | `boolean` | `false` | Adjust padding for first mobile row |
+| `className` | `string` | - | Custom CSS classes |
+| `onClick` | `() => void` | - | Click handler |
+
+**Example:**
+
+```tsx
+<TableCellCardValue
+  label="Total Amount"
+  value="$1,234.56"
+  size="lg"
+  highlight
+  icon={<DollarIcon />}
+/>
+```
+
+**Source:** ~/workspace/source/react/src/components/Tables/TableCellCardValue.tsx:4
+
+## Complete Example
+
+Here's a complete example showing responsive table with loading state:
+
+```tsx
+import {
+  TableSkeleton,
+  HeaderRow,
+  BodyRow,
+  SummaryRow,
+  HeaderCell,
+  BodyCell,
+  TableCellCardValue
+} from '@drift/common/react';
+
+function UserTable({ users, loading, isMobile }) {
+  const totalUsers = users.length;
+
+  return (
+    <TableSkeleton
+      loading={loading}
+      isMobile={isMobile}
+      hideHeadersOnMobile
+      fillSpace
+      top={
+        <HeaderRow grid="grid-cols-4" addScrollPadding>
+          <HeaderCell>Name</HeaderCell>
+          <HeaderCell>Email</HeaderCell>
+          <HeaderCell>Role</HeaderCell>
+          <HeaderCell alignRight>Status</HeaderCell>
+        </HeaderRow>
+      }
+      middle={
+        <>
+          {users.map((user) => (
+            <BodyRow 
+              key={user.id} 
+              grid="grid-cols-4"
+              isDataRow
+            >
+              {isMobile ? (
+                <BodyCell flexCol>
+                  <TableCellCardValue label="Name" value={user.name} />
+                  <TableCellCardValue label="Email" value={user.email} />
+                  <TableCellCardValue label="Role" value={user.role} />
+                  <TableCellCardValue label="Status" value={user.status} />
+                </BodyCell>
+              ) : (
+                <>
+                  <BodyCell>{user.name}</BodyCell>
+                  <BodyCell>{user.email}</BodyCell>
+                  <BodyCell>{user.role}</BodyCell>
+                  <BodyCell alignRight>{user.status}</BodyCell>
+                </>
+              )}
+            </BodyRow>
+          ))}
+        </>
+      }
+      bottom={
+        <SummaryRow grid="grid-cols-4">
+          <BodyCell>Total Users</BodyCell>
+          <BodyCell></BodyCell>
+          <BodyCell></BodyCell>
+          <BodyCell alignRight>{totalUsers}</BodyCell>
+        </SummaryRow>
+      }
+    />
+  );
+}
+```
+
+## Styling
+
+All table components use Tailwind CSS and can be customized via `className` props. The components use `tailwind-merge` to intelligently combine custom classes with defaults.
+
+### Grid Layouts
+
+Table rows use CSS Grid for column layouts. Specify grid classes using the `grid` prop:
+
+```tsx
+// 3 equal columns
+<HeaderRow grid="grid-cols-3">
+
+// Custom column widths
+<HeaderRow grid="grid-cols-[200px_1fr_100px]">
+
+// Responsive columns
+<HeaderRow grid="grid-cols-1 md:grid-cols-3">
+```
+
+## Accessibility
+
+Table components support:
+
+- Semantic HTML structure
+- Keyboard navigation through interactive elements
+- ARIA labels via custom props
+- Screen reader friendly content
+
+## Related Components
+
+Also exported from the Tables module:
+
+- `BodyCellWrapper` - Lower-level cell wrapper
+- `HeaderCellWrapper` - Lower-level header wrapper
+- `BodyRowWrapper` - Lower-level row wrapper
+- `TableRowWrapper` - Generic row wrapper

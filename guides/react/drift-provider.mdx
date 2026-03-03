@@ -1,0 +1,355 @@
+---
+title: Setting Up Drift Provider
+description: Configure the DriftProvider to manage Drift Protocol state in your React app
+---
+
+## Overview
+
+The `DriftProvider` is the central component for integrating Drift Protocol into your React application. It:
+
+- Wraps `DriftWalletProvider` for wallet management
+- Initializes and manages the Drift client connection
+- Provides hooks for accessing Drift data
+- Handles polling and subscription logic
+- Manages screen size and responsive breakpoints
+
+## Basic Setup
+
+```tsx
+import { DriftProvider, DRIFT_WALLET_PROVIDERS } from '@drift-labs/react';
+
+const DEFAULT_BREAKPOINTS = {
+  sm: 640,
+  md: 768,
+  lg: 1024,
+  xl: 1280,
+  '2xl': 1536,
+};
+
+function App() {
+  return (
+    <DriftProvider
+      wallets={DRIFT_WALLET_PROVIDERS}
+      breakpoints={DEFAULT_BREAKPOINTS}
+    >
+      {/* Your app components */}
+    </DriftProvider>
+  );
+}
+```
+
+## Configuration Options
+
+### DriftProviderProps
+
+```tsx
+interface DriftProviderProps {
+  // Wallet configuration
+  wallets?: WalletAdapter[];
+  disableAutoconnect?: boolean;
+  autoconnectionDelay?: number;
+  
+  // Screen breakpoints (required)
+  breakpoints: Breakpoints;
+  
+  // Drift client configuration
+  additionalDriftClientConfig?: Partial<DriftClientConfig>;
+  
+  // Feature flags
+  disable?: {
+    idlePollingRateSwitcher?: boolean;
+    emulation?: boolean;
+    geoblocking?: boolean;
+    initConnection?: boolean;
+    subscribeSolBalance?: boolean;
+  };
+  
+  // Geoblocking
+  geoBlocking?: {
+    callback?: () => void;
+  };
+}
+```
+
+Source: `/home/daytona/workspace/source/react/src/providers/DriftProvider.tsx:39-43`
+
+## Advanced Configuration
+
+### Custom Drift Client Config
+
+Pass additional configuration to the Drift SDK client:
+
+```tsx
+import { DriftProvider } from '@drift-labs/react';
+import { DriftEnv } from '@drift-labs/sdk';
+
+function App() {
+  return (
+    <DriftProvider
+      wallets={DRIFT_WALLET_PROVIDERS}
+      breakpoints={DEFAULT_BREAKPOINTS}
+      additionalDriftClientConfig={{
+        env: 'mainnet-beta' as DriftEnv,
+        accountSubscription: {
+          type: 'websocket',
+          resubTimeoutMs: 30000,
+        },
+      }}
+    >
+      {/* Your app */}
+    </DriftProvider>
+  );
+}
+```
+
+### Disabling Features
+
+Optimize your app by disabling unused features:
+
+```tsx
+<DriftProvider
+  wallets={DRIFT_WALLET_PROVIDERS}
+  breakpoints={DEFAULT_BREAKPOINTS}
+  disable={{
+    emulation: true, // Disable emulation mode
+    geoblocking: true, // Disable geo-blocking checks
+    subscribeSolBalance: true, // Don't auto-subscribe to SOL balance
+  }}
+>
+  {/* Your app */}
+</DriftProvider>
+```
+
+### Geoblocking Configuration
+
+Handle geoblocking with a custom callback:
+
+```tsx
+function App() {
+  const handleGeoBlocked = () => {
+    console.log('User is geo-blocked');
+    // Redirect to info page or show modal
+  };
+
+  return (
+    <DriftProvider
+      wallets={DRIFT_WALLET_PROVIDERS}
+      breakpoints={DEFAULT_BREAKPOINTS}
+      geoBlocking={{
+        callback: handleGeoBlocked,
+      }}
+    >
+      {/* Your app */}
+    </DriftProvider>
+  );
+}
+```
+
+## Breakpoints Configuration
+
+Breakpoints are **required** and used for responsive design:
+
+```tsx
+import { Breakpoints } from '@drift-labs/react';
+
+const CUSTOM_BREAKPOINTS: Breakpoints = {
+  sm: 640,
+  md: 768,
+  lg: 1024,
+  xl: 1280,
+  '2xl': 1536,
+  // Add custom breakpoints
+  mobile: 480,
+  tablet: 900,
+};
+
+<DriftProvider
+  wallets={DRIFT_WALLET_PROVIDERS}
+  breakpoints={CUSTOM_BREAKPOINTS}
+>
+  {/* Your app */}
+</DriftProvider>
+```
+
+## Provider Hooks
+
+The `DriftProvider` automatically initializes several hooks:
+
+### Connection Initialization
+
+Initializes the Drift client and connection (enabled by default):
+
+```tsx
+// Automatically called by DriftProvider
+import { useInitializeConnection } from '@drift-labs/react';
+```
+
+Source: `/home/daytona/workspace/source/react/src/providers/DriftProvider.tsx:57-60`
+
+### Idle Polling Rate Switcher
+
+Automatically reduces polling rate when user is idle:
+
+```tsx
+// Disable if not needed
+<DriftProvider
+  disable={{ idlePollingRateSwitcher: true }}
+  // ...
+>
+```
+
+### SOL Balance Subscription
+
+Automatically subscribes to the connected wallet's SOL balance:
+
+```tsx
+// Disable if you're handling balance separately
+<DriftProvider
+  disable={{ subscribeSolBalance: true }}
+  // ...
+>
+```
+
+Source: `/home/daytona/workspace/source/react/src/providers/DriftProvider.tsx:61`
+
+### Screen Size Tracking
+
+Tracks current screen size based on breakpoints:
+
+```tsx
+import { useCommonDriftStore } from '@drift-labs/react';
+
+function ResponsiveComponent() {
+  const screenSize = useCommonDriftStore((s) => s.screenSize);
+  
+  return <div>Current screen: {screenSize}</div>;
+}
+```
+
+Source: `/home/daytona/workspace/source/react/src/providers/DriftProvider.tsx:62`
+
+## Accessing the Drift Store
+
+The provider initializes the global Drift store:
+
+```tsx
+import { useCommonDriftStore } from '@drift-labs/react';
+
+function DriftInfo() {
+  const driftClient = useCommonDriftStore((s) => s.driftClient.client);
+  const connection = useCommonDriftStore((s) => s.connection);
+  const authority = useCommonDriftStore((s) => s.authority);
+  const isReady = useCommonDriftStore((s) => s.checkIsDriftClientReady());
+
+  return (
+    <div>
+      <div>Client Ready: {isReady ? 'Yes' : 'No'}</div>
+      <div>Connected: {authority ? 'Yes' : 'No'}</div>
+    </div>
+  );
+}
+```
+
+## Developer Tools
+
+In development, the Drift store is exposed on the window object:
+
+```tsx
+// Available in browser console
+window.drift_dev.getStore();
+```
+
+Source: `/home/daytona/workspace/source/react/src/providers/DriftProvider.tsx:48-51`
+
+## Provider Architecture
+
+The `DriftProvider` has a two-layer architecture:
+
+1. **DriftWalletProvider** (outer): Manages wallet adapters and connections
+2. **DriftProviderInner** (inner): Initializes Drift-specific hooks and functionality
+
+This structure prevents infinite loops when wallet state changes.
+
+Source: `/home/daytona/workspace/source/react/src/providers/DriftProvider.tsx:69-91`
+
+## Complete Example
+
+```tsx
+import { DriftProvider, DRIFT_WALLET_PROVIDERS } from '@drift-labs/react';
+import { DriftEnv } from '@drift-labs/sdk';
+
+const BREAKPOINTS = {
+  sm: 640,
+  md: 768,
+  lg: 1024,
+  xl: 1280,
+  '2xl': 1536,
+};
+
+function App() {
+  const handleGeoBlocked = () => {
+    alert('Sorry, this service is not available in your region');
+  };
+
+  return (
+    <DriftProvider
+      // Wallet configuration
+      wallets={DRIFT_WALLET_PROVIDERS}
+      disableAutoconnect={false}
+      autoconnectionDelay={4000}
+      
+      // Required breakpoints
+      breakpoints={BREAKPOINTS}
+      
+      // Drift client config
+      additionalDriftClientConfig={{
+        env: 'mainnet-beta' as DriftEnv,
+      }}
+      
+      // Feature flags
+      disable={{
+        emulation: false,
+        geoblocking: false,
+        idlePollingRateSwitcher: false,
+        subscribeSolBalance: false,
+      }}
+      
+      // Geoblocking
+      geoBlocking={{
+        callback: handleGeoBlocked,
+      }}
+    >
+      {/* Your app components */}
+    </DriftProvider>
+  );
+}
+
+export default App;
+```
+
+## Best Practices
+
+1. **Always provide breakpoints**: This is required and ensures responsive design works correctly
+2. **Disable unused features**: Improve performance by disabling features you don't need
+3. **Use a single DriftProvider**: Only wrap your app root, don't nest multiple providers
+4. **Access store efficiently**: Use Zustand selectors to prevent unnecessary re-renders
+
+```tsx
+// Good: Only re-renders when authority changes
+const authority = useCommonDriftStore((s) => s.authority);
+
+// Bad: Re-renders on any store change
+const store = useCommonDriftStore();
+const authority = store.authority;
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Using Hooks" icon="code" href="/guides/react/using-hooks">
+    Learn about available hooks for accessing Drift data
+  </Card>
+  <Card title="Custom Components" icon="puzzle-piece" href="/guides/react/custom-components">
+    Build custom components with Drift functionality
+  </Card>
+</CardGroup>

@@ -1,0 +1,167 @@
+---
+title: 'Math Utilities'
+description: 'Calculate orderbook spreads, bid/ask prices, and mark prices'
+---
+
+The `COMMON_MATH` namespace provides utilities for calculating spreads, bid/ask prices, and mark prices from L2 orderbook data.
+
+## Import
+
+```typescript
+import { COMMON_MATH } from '@drift/common';
+```
+
+## Functions
+
+### calculateSpreadBidAskMark
+
+Calculates the spread (in both quote and percentage), best bid/ask prices, and mark price from an L2 orderbook.
+
+<ParamField path="l2" type="Pick<L2OrderBook, 'bids' | 'asks'>" required>
+  L2 orderbook data containing bids and asks arrays
+</ParamField>
+
+<ParamField path="oraclePrice" type="BN">
+  Optional oracle price for mark price calculation. If provided, will be used to resolve crossed bid/ask scenarios
+</ParamField>
+
+<ResponseField name="bestBidPrice" type="BN | undefined">
+  The highest bid price in the orderbook
+</ResponseField>
+
+<ResponseField name="bestAskPrice" type="BN | undefined">
+  The lowest ask price in the orderbook
+</ResponseField>
+
+<ResponseField name="markPrice" type="BN | undefined">
+  The calculated mark price (midpoint of bid/ask or oracle-adjusted)
+</ResponseField>
+
+<ResponseField name="spreadQuote" type="BN | undefined">
+  The spread in quote terms (ask - bid)
+</ResponseField>
+
+<ResponseField name="spreadPct" type="BN | undefined">
+  The spread as a percentage of mark price (multiplied by PERCENTAGE_PRECISION)
+</ResponseField>
+
+## Usage Examples
+
+### Basic Spread Calculation
+
+```typescript
+import { COMMON_MATH } from '@drift/common';
+import { BN } from '@drift-labs/sdk';
+
+const l2Orderbook = {
+  bids: [
+    { price: new BN(100000), size: new BN(10) },
+    { price: new BN(99900), size: new BN(15) },
+  ],
+  asks: [
+    { price: new BN(100100), size: new BN(12) },
+    { price: new BN(100200), size: new BN(8) },
+  ],
+};
+
+const result = COMMON_MATH.calculateSpreadBidAskMark(l2Orderbook);
+
+console.log('Best Bid:', result.bestBidPrice?.toString()); // 100000
+console.log('Best Ask:', result.bestAskPrice?.toString()); // 100100
+console.log('Mark Price:', result.markPrice?.toString()); // 100050
+console.log('Spread (quote):', result.spreadQuote?.toString()); // 100
+```
+
+### With Oracle Price
+
+```typescript
+import { COMMON_MATH } from '@drift/common';
+import { BN } from '@drift-labs/sdk';
+
+const l2Orderbook = {
+  bids: [{ price: new BN(100500), size: new BN(10) }],
+  asks: [{ price: new BN(100200), size: new BN(12) }],
+};
+
+const oraclePrice = new BN(100300);
+
+const result = COMMON_MATH.calculateSpreadBidAskMark(
+  l2Orderbook,
+  oraclePrice
+);
+
+// When bid > ask, oracle price is used to resolve the cross
+console.log('Mark Price:', result.markPrice?.toString()); // 100300
+```
+
+### Empty Orderbook
+
+```typescript
+import { COMMON_MATH } from '@drift/common';
+
+const emptyOrderbook = {
+  bids: [],
+  asks: [],
+};
+
+const result = COMMON_MATH.calculateSpreadBidAskMark(emptyOrderbook);
+
+console.log(result);
+// {
+//   spreadQuote: undefined,
+//   spreadPct: undefined,
+//   markPrice: undefined,
+//   bestBidPrice: undefined,
+//   bestAskPrice: undefined
+// }
+```
+
+### Calculate Spread Percentage
+
+```typescript
+import { COMMON_MATH } from '@drift/common';
+import { BN, PERCENTAGE_PRECISION } from '@drift-labs/sdk';
+
+const l2Orderbook = {
+  bids: [{ price: new BN(100000), size: new BN(10) }],
+  asks: [{ price: new BN(101000), size: new BN(12) }],
+};
+
+const result = COMMON_MATH.calculateSpreadBidAskMark(l2Orderbook);
+
+if (result.spreadPct) {
+  // spreadPct is multiplied by PERCENTAGE_PRECISION (10^6)
+  const spreadPercentage = result.spreadPct.toNumber() / PERCENTAGE_PRECISION.toNumber() / 100;
+  console.log(`Spread: ${spreadPercentage}%`); // Spread: 1%
+}
+```
+
+## Mark Price Calculation Logic
+
+The mark price is calculated using the following logic:
+
+1. **Normal case (bid < ask)**: Mark price = (bid + ask) / 2
+2. **Crossed orderbook (bid > ask)**:
+   - If both bid and ask > oracle: Use the minimum of bid/ask
+   - If both bid and ask < oracle: Use the maximum of bid/ask
+   - If oracle is between bid and ask: Use oracle price
+3. **No oracle price**: Use midpoint of bid/ask
+4. **Missing bid or ask**: Use oracle price if available
+
+## Related Types
+
+### L2OrderBook
+
+```typescript
+import { L2OrderBook } from '@drift-labs/sdk';
+
+interface L2OrderBook {
+  bids: Array<{ price: BN; size: BN }>;
+  asks: Array<{ price: BN; size: BN }>;
+  slot: number;
+}
+```
+
+## Source Code
+
+Location: `~/workspace/source/common-ts/src/utils/math.ts:73`

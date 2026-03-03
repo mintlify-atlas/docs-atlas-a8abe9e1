@@ -1,0 +1,438 @@
+---
+title: "Serializable Types"
+description: "Serializable type definitions for Drift protocol data structures"
+---
+
+The `serializableTypes.ts` module provides serializable versions of Drift protocol data structures that can be safely transmitted over the network or stored in databases.
+
+## Overview
+
+This module uses the `cerializr` library to provide automatic serialization and deserialization of complex types including:
+
+- BigNum and BN (Big Number) types
+- PublicKey types from Solana
+- Enum types from the SDK
+- Complex nested objects and arrays
+
+## Type Variants
+
+Most types come in two variants:
+
+- **Serializable** - Basic serializable version with BN types
+- **UISerializable** - UI-friendly version with BigNum types for display
+
+## Core Serialization Functions
+
+The module exports serialization utilities through the `CommonSerializationUtils` object:
+
+```typescript
+import { CommonSerializationUtils } from '@drift/common';
+
+// Serialize an order record
+const serialized = Serialize(orderRecord, SerializableOrderRecord);
+
+// Deserialize from JSON
+const order = CommonSerializationUtils.deserialize.Order(jsonData);
+const uiOrder = CommonSerializationUtils.deserialize.UIOrder(jsonData);
+```
+
+## Order Types
+
+### SerializableOrder
+
+Represents a single order in the Drift protocol.
+
+**Properties:**
+
+- `status`: OrderStatus - Current order status
+- `orderType`: OrderType - Type of order (market, limit, etc.)
+- `ts`: BN - Timestamp
+- `orderId`: number - Unique order ID
+- `userOrderId`: number - User-defined order ID
+- `marketIndex`: number - Market index
+- `price`: BN - Order price
+- `baseAssetAmount`: BN - Base asset amount
+- `baseAssetAmountFilled`: BN - Amount filled
+- `quoteAssetAmount`: BN - Quote asset amount
+- `quoteAssetAmountFilled`: BN - Quote amount filled
+- `direction`: PositionDirection - Long or short
+- `reduceOnly`: boolean - Reduce-only flag
+- `triggerPrice`: BN - Trigger price for conditional orders
+- `triggerCondition`: OrderTriggerCondition - Trigger condition
+- `postOnly`: boolean - Post-only flag
+- `immediateOrCancel`: boolean - IOC flag
+- `marketType`: MarketType - Perp or spot market
+
+### UISerializableOrder
+
+Extends `SerializableOrder` with BigNum types for UI display.
+
+**Usage:**
+
+```typescript
+const uiOrder = CommonSerializationUtils.deserialize.UIOrder(orderData);
+
+// BigNum properties provide formatted display
+console.log(uiOrder.price.print()); // "50000.00"
+console.log(uiOrder.baseAssetAmount.print()); // "1.5"
+```
+
+### SerializableOrderRecord
+
+Wrapped order record event from transaction history.
+
+**Properties:**
+
+- `eventType`: 'OrderRecord' - Event type identifier
+- `txSig`: string - Transaction signature
+- `txSigIndex`: number - Index within transaction
+- `slot`: number - Slot number
+- `ts`: BN - Timestamp
+- `user`: PublicKey - User account
+- `order`: Order - Order data
+
+### SerializableOrderActionRecord
+
+Represents an action taken on an order (fill, cancel, etc.).
+
+**Properties:**
+
+- `eventType`: 'OrderActionRecord'
+- `action`: OrderAction - Action type
+- `actionExplanation`: OrderActionExplanation - Why action occurred
+- `marketIndex`: number
+- `marketType`: MarketType
+- `filler`: PublicKey | null - Filler account
+- `fillerReward`: BN | null - Filler reward
+- `baseAssetAmountFilled`: BN | null - Amount filled
+- `quoteAssetAmountFilled`: BN | null - Quote amount filled
+- `takerFee`: BN | null - Taker fee
+- `makerRebate`: BN | null - Maker rebate
+- `taker`: PublicKey | null - Taker account
+- `takerOrderId`: number | null
+- `maker`: PublicKey | null - Maker account
+- `makerOrderId`: number | null
+- `oraclePrice`: BN - Oracle price at time of action
+
+**Usage:**
+
+```typescript
+const actionRecord = CommonSerializationUtils.deserialize.OrderActionRecord(data);
+
+if (actionRecord.action.fill) {
+  console.log('Order filled:', actionRecord.baseAssetAmountFilled.toString());
+}
+```
+
+## Deposit/Withdrawal Types
+
+### SerializableDepositRecord
+
+Represents a deposit or withdrawal event.
+
+**Properties:**
+
+- `depositRecordId`: BN - Record ID
+- `userAuthority`: PublicKey - User authority
+- `user`: PublicKey - User account
+- `direction`: Direction enum (deposit or withdraw)
+- `marketIndex`: number - Spot market index
+- `amount`: BN - Amount deposited/withdrawn
+- `oraclePrice`: BN - Oracle price
+- `marketDepositBalance`: BN - Market deposit balance after
+- `marketWithdrawBalance`: BN - Market withdraw balance after
+- `explanation`: DepositExplanation - Why deposit/withdrawal occurred
+
+**Usage:**
+
+```typescript
+const deposit = CommonSerializationUtils.deserialize.UIDeposit(depositData);
+
+if (deposit.direction.deposit) {
+  console.log('Deposited:', deposit.amount.print());
+} else {
+  console.log('Withdrew:', deposit.amount.print());
+}
+```
+
+## Funding Rate Types
+
+### SerializableFundingRateRecord
+
+Funding rate record for a perpetual market.
+
+**Properties:**
+
+- `ts`: BN - Timestamp
+- `recordId`: BN - Record ID
+- `marketIndex`: number - Perp market index
+- `fundingRate`: BN - Funding rate
+- `cumulativeFundingRateLong`: BN - Cumulative funding rate for longs
+- `cumulativeFundingRateShort`: BN - Cumulative funding rate for shorts
+- `oraclePrice`: BN - Oracle price
+- `markPrice`: BN - Mark price
+
+### SerializableFundingPaymentRecord
+
+Funding payment charged to a user.
+
+**Properties:**
+
+- `ts`: BN - Timestamp
+- `user`: PublicKey - User account
+- `marketIndex`: number - Perp market index
+- `fundingPayment`: BN - Payment amount (positive = paid, negative = received)
+- `baseAssetAmount`: BN - Position size
+- `userLastCumulativeFunding`: BN - User's last cumulative funding
+- `amm`: Object containing cumulative funding rates (long and short)
+
+## Liquidation Types
+
+### SerializableLiquidationRecord
+
+Complete liquidation event record.
+
+**Properties:**
+
+- `ts`: BN - Timestamp
+- `liquidationType`: LiquidationType - Type of liquidation
+- `user`: PublicKey - Liquidated user
+- `liquidator`: PublicKey - Liquidator
+- `marginRequirement`: BN - Margin requirement
+- `totalCollateral`: BN - Total collateral
+- `marginFreed`: BN - Margin freed
+- `liquidationId`: BN - Liquidation ID
+- `bankrupt`: boolean - Whether user went bankrupt
+- `canceledOrderIds`: number[] - Orders canceled
+- `liquidatePerp`: LiquidatePerpRecord - Perp liquidation data
+- `liquidateSpot`: LiquidateSpotRecord - Spot liquidation data
+- `liquidateBorrowForPerpPnl`: LiquidateBorrowForPerpPnlRecord
+- `liquidatePerpPnlForDeposit`: LiquidatePerpPnlForDepositRecord
+- `perpBankruptcy`: PerpBankruptcyRecord
+- `spotBankruptcy`: SpotBankruptcyRecord
+
+**Usage:**
+
+```typescript
+const liquidation = CommonSerializationUtils.deserialize.UILiquidation(liquidationData);
+
+if (liquidation.liquidatePerp) {
+  console.log('Perp position liquidated:', liquidation.liquidatePerp.marketIndex);
+}
+```
+
+## Settle PnL Types
+
+### SerializableSettlePnlRecord
+
+PnL settlement event.
+
+**Properties:**
+
+- `ts`: BN - Timestamp
+- `user`: PublicKey - User account
+- `marketIndex`: number - Market index
+- `pnl`: BN - PnL amount
+- `baseAssetAmount`: BN - Position size
+- `quoteAssetAmountAfter`: BN - Quote asset after settlement
+- `quoteEntryAmount`: BN - Quote entry amount
+- `settlePrice`: BN - Settlement price
+- `explanation`: SettlePnlExplanation - Why PnL was settled
+
+## Leaderboard Types
+
+### SerializableUserSnapshotRecord
+
+User account snapshot for leaderboards.
+
+**Properties:**
+
+- `user`: PublicKey - User account
+- `authority`: PublicKey - User authority
+- `epochTs`: number - Epoch timestamp
+- `perpPositions`: UserPerpPositionSnapshot[] - Perp positions
+- `spotPositions`: UserSpotPositionSnapshot[] - Spot positions
+
+### SerializableLeaderboardResult
+
+Leaderboard results.
+
+**Properties:**
+
+- `lastUpdateTs`: number - Last update timestamp
+- `ordering`: PnlSnapshotOrderOption - Ordering method
+- `results`: LeaderBoardResultRow[] - Result rows
+
+## Candle Types
+
+### SerializableCandle
+
+OHLCV candle data.
+
+**Properties:**
+
+- `start`: BN - Candle start time
+- `resolution`: CandleResolution - Time resolution
+- `marketType`: MarketType
+- `marketIndex`: number
+- `open`: BN - Open price
+- `high`: BN - High price
+- `low`: BN - Low price
+- `close`: BN - Close price
+- `volume`: BN - Volume
+
+**Usage:**
+
+```typescript
+const candle = CommonSerializationUtils.deserialize.UICandle(candleData);
+
+console.log('OHLC:', [
+  candle.open.print(),
+  candle.high.print(),
+  candle.low.print(),
+  candle.close.print()
+]);
+```
+
+## Insurance Fund Types
+
+### SerializableInsuranceFundRecord
+
+Insurance fund transaction record.
+
+**Properties:**
+
+- `ts`: BN - Timestamp
+- `spotMarketIndex`: number
+- `perpMarketIndex`: number
+- `userIfFactor`: number - User IF factor
+- `totalIfFactor`: number - Total IF factor
+- `vaultAmountBefore`: BN - Vault amount before
+- `insuranceVaultAmountBefore`: BN - Insurance vault before
+- `totalIfSharesBefore`: BN - Total shares before
+- `totalIfSharesAfter`: BN - Total shares after
+- `amount`: BN - Transaction amount
+
+### SerializableInsuranceFundStakeRecord
+
+Insurance fund stake/unstake record.
+
+**Properties:**
+
+- `ts`: BN - Timestamp
+- `userAuthority`: PublicKey
+- `action`: StakeAction - Stake or unstake
+- `amount`: BN - Amount staked/unstaked
+- `marketIndex`: number
+- `insuranceVaultAmountBefore`: BN
+- `ifSharesBefore`: BN
+- `userIfSharesBefore`: BN
+- `totalIfSharesBefore`: BN
+- `ifSharesAfter`: BN
+- `userIfSharesAfter`: BN
+- `totalIfSharesAfter`: BN
+
+## LP (Liquidity Provider) Types
+
+### SerializableLPRecord
+
+LP action record.
+
+**Properties:**
+
+- `ts`: BN - Timestamp
+- `user`: PublicKey
+- `action`: LPAction - Add or remove liquidity
+- `nShares`: BN - Number of shares
+- `marketIndex`: number
+- `deltaBaseAssetAmount`: BN - Change in base asset
+- `deltaQuoteAssetAmount`: BN - Change in quote asset
+- `pnl`: BN - PnL from LP action
+
+## Swap Types
+
+### SerializableSwapRecord
+
+Spot market swap record.
+
+**Properties:**
+
+- `ts`: BN - Timestamp
+- `user`: PublicKey
+- `amountOut`: BN - Amount received
+- `amountIn`: BN - Amount sent
+- `outMarketIndex`: number - Output market
+- `inMarketIndex`: number - Input market
+- `fee`: BN - Swap fee
+
+## Deserialization Utilities
+
+The `CommonSerializationUtils.deserialize` object provides methods for all types:
+
+```typescript
+// Orders
+CommonSerializationUtils.deserialize.Order(json)
+CommonSerializationUtils.deserialize.UIOrder(json)
+CommonSerializationUtils.deserialize.OrderActionRecord(json)
+CommonSerializationUtils.deserialize.UIOrderActionRecord(json)
+
+// Deposits
+CommonSerializationUtils.deserialize.Deposit(json)
+CommonSerializationUtils.deserialize.UIDeposit(json)
+
+// Funding
+CommonSerializationUtils.deserialize.FundingRate(json)
+CommonSerializationUtils.deserialize.UIFundingRate(json)
+CommonSerializationUtils.deserialize.FundingPayment(json)
+CommonSerializationUtils.deserialize.UIFundingPayment(json)
+
+// Liquidations
+CommonSerializationUtils.deserialize.Liquidation(json)
+CommonSerializationUtils.deserialize.UILiquidation(json)
+
+// PnL Settlement
+CommonSerializationUtils.deserialize.SettlePnl(json)
+CommonSerializationUtils.deserialize.UISettlePnl(json)
+
+// Leaderboard
+CommonSerializationUtils.deserialize.UserSnapshot(json)
+CommonSerializationUtils.deserialize.UIUserSnapshot(json)
+CommonSerializationUtils.deserialize.LeaderboardResult(json)
+
+// Candles
+CommonSerializationUtils.deserialize.Candle(json)
+CommonSerializationUtils.deserialize.UICandle(json)
+
+// Insurance Fund
+CommonSerializationUtils.deserialize.InsuranceFundRecord(json)
+CommonSerializationUtils.deserialize.UIInsuranceFundRecord(json)
+CommonSerializationUtils.deserialize.InsuranceFundStakeRecord(json)
+CommonSerializationUtils.deserialize.UIInsuranceFundStakeRecord(json)
+
+// LP
+CommonSerializationUtils.deserialize.LPRecord(json)
+CommonSerializationUtils.deserialize.UILPRecord(json)
+
+// Swaps
+CommonSerializationUtils.deserialize.SwapRecord(json)
+CommonSerializationUtils.deserialize.UISwapRecord(json)
+```
+
+## Configuration Setup
+
+Before using UI serializable types, initialize the Config:
+
+```typescript
+import { Initialize } from '@drift/common';
+import { DriftEnv } from '@drift-labs/sdk';
+
+// Initialize config with environment
+Initialize(DriftEnv.MAINNET);
+
+// Now UI types can correctly deserialize with market-specific precision
+const uiOrder = CommonSerializationUtils.deserialize.UIOrder(orderData);
+```
+
+## Source Location
+
+`serializableTypes.ts` - `/home/daytona/workspace/source/common-ts/src/serializableTypes.ts`

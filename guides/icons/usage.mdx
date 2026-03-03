@@ -1,0 +1,208 @@
+---
+title: Using Icon Components
+description: Learn how to use Drift icon components with props, styling, and best practices
+---
+
+All Drift icons are React components that accept a consistent set of props for customization.
+
+## Basic Usage
+
+Import and use icon components like any React component:
+
+```tsx
+import { Warning, Success, Trade } from '@drift-labs/icons';
+
+function MyComponent() {
+  return (
+    <div>
+      <Warning />
+      <Success />
+      <Trade />
+    </div>
+  );
+}
+```
+
+## Icon Props
+
+All icon components accept the following props:
+
+### Color
+
+Set the icon color using the `color` prop:
+
+```tsx
+import { Warning } from '@drift-labs/icons';
+
+<Warning color="#FF6B6B" />
+<Warning color="currentColor" /> {/* Default: inherits text color */}
+```
+
+The default value is `currentColor`, which inherits the current text color from CSS.
+
+### Size
+
+Control icon dimensions using the `size` prop (in pixels):
+
+```tsx
+import { Trade } from '@drift-labs/icons';
+
+<Trade size={24} />
+<Trade size={32} />
+<Trade size={48} />
+```
+
+Default size is `16px` when neither `size` nor `autoSize` is specified.
+
+### Auto Size
+
+Make icons scale with font size using `autoSize`:
+
+```tsx
+import { Success } from '@drift-labs/icons';
+
+<div style={{ fontSize: '24px' }}>
+  <Success autoSize /> {/* Icon will be 24px */}
+</div>
+```
+
+When `autoSize={true}`, the icon dimensions are set to `1em`, making it scale with the parent's font size.
+
+### SVG Props
+
+Pass additional props to the underlying SVG element:
+
+```tsx
+import { Warning } from '@drift-labs/icons';
+
+<Warning 
+  svgProps={{
+    className: 'my-icon',
+    'aria-label': 'Warning icon',
+    role: 'img'
+  }} 
+/>
+```
+
+### HTML Span Props
+
+The icon wrapper is a `<span>` element that accepts standard HTML props (except `color` and `size`):
+
+```tsx
+import { Trade } from '@drift-labs/icons';
+
+<Trade 
+  className="trade-icon"
+  onClick={() => console.log('clicked')}
+  style={{ margin: '8px' }}
+/>
+```
+
+## Icon Structure
+
+Each icon component is wrapped in an `IconWrapper` that:
+
+1. Wraps the SVG in a `<span>` element
+2. Sets default dimensions to `16px` or `1em` (if `autoSize` is true)
+3. Applies `display: inline-flex` for proper alignment
+4. Inherits font size for responsive scaling
+
+## Available Icons
+
+The package includes icons for all Drift UI elements:
+
+### Trading Icons
+- `Trade`, `TradingUp`, `Swap`, `Transfer`
+- `Positions`, `OrderBook`, `RecentTrades`
+- `Stake`, `Withdraw`, `Deposit`
+
+### Status Icons
+- `Success`, `SuccessFilled`
+- `Warning`, `WarningFilled`
+- `Error`, `ErrorFilled`
+
+### UI Icons
+- `Settings`, `SettingsTrade`, `SettingsOther`
+- `Search`, `Menu`, `Notification`, `NotificationNew`
+- `Refresh`, `Upload`, `Share`
+
+### Social Icons
+- `Twitter`, `Telegram`, `Discord`, `Medium`
+
+### Market Icons
+- `Spot`, `NewMarket`, `PreLaunch`
+- `Stats`, `PieChart`, `Overview`
+
+And many more. Check your IDE's autocomplete for a full list when importing from `@drift-labs/icons`.
+
+## Best Practices
+
+### Use currentColor
+
+Leverage `currentColor` to make icons inherit text color:
+
+```tsx
+<div className="text-green-500">
+  <Success /> {/* Will be green */}
+</div>
+```
+
+### Combine with Design System
+
+Integrate icons with your design system colors:
+
+```tsx
+import { Warning } from '@drift-labs/icons';
+import { colors } from './design-system';
+
+<Warning color={colors.warning} size={20} />
+```
+
+### Accessibility
+
+Add appropriate ARIA labels for screen readers:
+
+```tsx
+<Trade 
+  svgProps={{
+    'aria-label': 'Open trade dialog',
+    role: 'img'
+  }}
+/>
+```
+
+### Performance
+
+Import only the icons you need. The package is tree-shakeable:
+
+```tsx
+// Good: Only imports Warning icon
+import { Warning } from '@drift-labs/icons';
+
+// Avoid: Imports entire package
+import * as Icons from '@drift-labs/icons';
+```
+
+## Example: Icon Button
+
+Combine icon props for a complete implementation:
+
+```tsx
+import { Trade } from '@drift-labs/icons';
+
+function TradeButton() {
+  return (
+    <button 
+      className="trade-button"
+      onClick={() => console.log('Trade clicked')}
+    >
+      <Trade 
+        color="currentColor"
+        size={20}
+        svgProps={{ 'aria-hidden': 'true' }}
+      />
+      <span>Trade</span>
+    </button>
+  );
+}
+```

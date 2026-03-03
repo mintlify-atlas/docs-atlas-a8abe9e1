@@ -1,0 +1,485 @@
+---
+title: Performance Optimization
+description: Best practices and techniques for optimizing performance in Drift Common applications
+---
+
+Optimize your Drift integration for better performance, reduced latency, and improved user experience.
+
+## Connection Optimization
+
+### RPC Connection Pooling
+
+Use multiple RPC connections for load balancing:
+
+```typescript
+import { EnvironmentConstants } from '@drift-labs/common';
+import { Connection } from '@solana/web3.js';
+
+class ConnectionPool {
+  private connections: Connection[];
+  private currentIndex = 0;
+
+  constructor() {
+    const rpcs = EnvironmentConstants.rpcs.mainnet
+      .filter(rpc => rpc.allowAdditionalConnection);
+    
+    this.connections = rpcs.map(rpc => 
+      new Connection(rpc.value, {
+        commitment: 'confirmed',
+        wsEndpoint: rpc.wsValue
+      })
+    );
+  }
+
+  getConnection(): Connection {
+    const conn = this.connections[this.currentIndex];
+    this.currentIndex = (this.currentIndex + 1) % this.connections.length;
+    return conn;
+  }
+}
+
+const pool = new ConnectionPool();
+const connection = pool.getConnection();
+```
+
+### WebSocket Multiplexing
+
+Share WebSocket connections across multiple subscriptions:
+
+```typescript
+import { MultiplexWebSocket } from '@drift-labs/common';
+
+const wsUrl = EnvironmentConstants.dlobServerWsUrl.mainnet;
+const multiplexWs = new MultiplexWebSocket(wsUrl);
+
+// Multiple subscriptions share the same connection
+multiplexWs.subscribe({ channel: 'orderbook', market: 'SOL-PERP' });
+multiplexWs.subscribe({ channel: 'trades', market: 'SOL-PERP' });
+multiplexWs.subscribe({ channel: 'orderbook', market: 'BTC-PERP' });
+```
+
+### Connection Commitment Levels
+
+Choose appropriate commitment levels for your use case:
+
+```typescript
+// Fast but less reliable - use for UI updates
+const fastConnection = new Connection(rpcUrl, {
+  commitment: 'processed'
+});
+
+// Balanced - use for most operations
+const normalConnection = new Connection(rpcUrl, {
+  commitment: 'confirmed'
+});
+
+// Slow but most reliable - use for critical transactions
+const reliableConnection = new Connection(rpcUrl, {
+  commitment: 'finalized'
+});
+```
+
+## Data Caching
+
+### Circular Buffer for Time Series
+
+Use `CircularBuffer` for efficient time-series data storage:
+
+```typescript
+import { CircularBuffer } from '@drift-labs/common';
+
+// Store last 1000 price points
+const priceHistory = new CircularBuffer<number>(1000);
+
+priceHistory.push(100.5);
+priceHistory.push(101.2);
+priceHistory.push(100.8);
+
+const latestPrice = priceHistory.peek(); // 100.8
+const allPrices = priceHistory.toArray();
+```
+
+### Unique Circular Buffer
+
+Prevent duplicate entries with `UniqueCircularBuffer`:
+
+```typescript
+import { UniqueCircularBuffer } from '@drift-labs/common';
+
+const recentTxSignatures = new UniqueCircularBuffer<string>(100);
+
+recentTxSignatures.push('signature1');
+recentTxSignatures.push('signature2');
+recentTxSignatures.push('signature1'); // Ignored - duplicate
+
+console.log(recentTxSignatures.size()); // 2
+```
+
+### Shared Intervals
+
+Batch periodic operations with `SharedInterval`:
+
+```typescript
+import { SharedInterval } from '@drift-labs/common';
+
+// Multiple components share the same interval
+const sharedInterval = new SharedInterval(5000); // 5 seconds
+
+sharedInterval.add(() => {
+  updatePrices();
+});
+
+sharedInterval.add(() => {
+  updatePositions();
+});
+
+sharedInterval.start();
+```
+
+## Market Data Optimization
+
+### Lazy Market Initialization
+
+Initialize markets only when needed:
+
+```typescript
+import { Config, Initialize } from '@drift-labs/common';
+
+class MarketManager {
+  private initialized = false;
+  
+  private ensureInitialized() {
+    if (!this.initialized) {
+      Initialize('mainnet-beta');
+      this.initialized = true;
+    }
+  }
+  
+  getSpotMarket(index: number) {
+    this.ensureInitialized();
+    return Config.spotMarketsLookup[index];
+  }
+}
+```
+
+### Market Config Lookup Tables
+
+Use pre-built lookup tables for O(1) access:
+
+```typescript
+import { Config } from '@drift-labs/common';
+
+// Access by market index - O(1)
+const solPerpMarket = Config.perpMarketsLookup[0];
+const usdcSpotMarket = Config.spotMarketsLookup[0];
+
+// Build custom lookup by symbol
+const marketsBySymbol = Config.perpMarketsLookup.reduce((acc, market) => {
+  acc[market.baseAssetSymbol] = market;
+  return acc;
+}, {} as Record<string, typeof Config.perpMarketsLookup[0]>);
+
+const solMarket = marketsBySymbol['SOL'];
+```
+
+## Transaction Optimization
+
+### Batch Operations
+
+Combine multiple operations into a single transaction:
+
+```typescript
+import { Transaction } from '@solana/web3.js';
+
+const tx = new Transaction();
+tx.add(depositIx);
+tx.add(placeOrderIx);
+tx.add(withdrawIx);
+
+// Send all at once
+await sendTransaction(tx);
+```
+
+### Compute Unit Optimization
+
+Request appropriate compute units:
+
+```typescript
+import { ComputeBudgetProgram } from '@solana/web3.js';
+
+const modifyComputeUnits = ComputeBudgetProgram.setComputeUnitLimit({
+  units: 400000 // Adjust based on transaction complexity
+});
+
+const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+  microLamports: 1 // Adjust based on network congestion
+});
+
+tx.add(modifyComputeUnits);
+tx.add(addPriorityFee);
+```
+
+### Transaction Preflight
+
+Skip preflight for faster submission (when safe):
+
+```typescript
+// Skip preflight for time-sensitive transactions
+await sendTransaction(tx, { skipPreflight: true });
+
+// But validate manually first
+const simulation = await connection.simulateTransaction(tx);
+if (simulation.value.err) {
+  throw new Error('Transaction would fail');
+}
+```
+
+## Slot-Based Optimization
+
+### Result Slot Validation
+
+Validate results based on slot numbers:
+
+```typescript
+import { SlotBasedResultValidator } from '@drift-labs/common';
+
+const validator = new SlotBasedResultValidator(100); // 100 slot threshold
+
+const result1 = { data: 'old', slot: 1000 };
+const result2 = { data: 'new', slot: 1050 };
+
+if (validator.isValid(result2.slot)) {
+  // Use result2
+}
+```
+
+### Result Slot Incrementer
+
+Track and increment slot-based results:
+
+```typescript
+import { ResultSlotIncrementer } from '@drift-labs/common';
+
+const incrementer = new ResultSlotIncrementer();
+
+incrementeer.update(1000, { price: 100 });
+incrementeer.update(1001, { price: 101 });
+incrementeer.update(1002, { price: 102 });
+
+const latest = incrementer.getLatest(); // { price: 102 }
+```
+
+## Memory Optimization
+
+### Limit Array Sizes
+
+Use circular buffers instead of growing arrays:
+
+```typescript
+// Bad - unbounded growth
+const prices: number[] = [];
+setInterval(() => {
+  prices.push(getCurrentPrice()); // Memory leak!
+}, 1000);
+
+// Good - bounded size
+import { CircularBuffer } from '@drift-labs/common';
+const prices = new CircularBuffer<number>(1000);
+setInterval(() => {
+  prices.push(getCurrentPrice()); // Only keeps last 1000
+}, 1000);
+```
+
+### Cleanup Subscriptions
+
+Always unsubscribe to prevent memory leaks:
+
+```typescript
+import { Subscription } from 'rxjs';
+
+class MarketDataComponent {
+  private subscriptions: Subscription[] = [];
+  
+  componentDidMount() {
+    const sub = marketDataFeed.subscribe(data => {
+      this.updateData(data);
+    });
+    this.subscriptions.push(sub);
+  }
+  
+  componentWillUnmount() {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions = [];
+  }
+}
+```
+
+## Bundle Size Optimization
+
+### Tree Shaking
+
+Import only what you need:
+
+```typescript
+// Good - imports only CircularBuffer
+import { CircularBuffer } from '@drift-labs/common';
+
+// Bad - imports entire library
+import * as DriftCommon from '@drift-labs/common';
+```
+
+### Code Splitting
+
+Lazy load heavy dependencies:
+
+```typescript
+// Lazy load Drift client
+const loadDriftClient = async () => {
+  const { DriftClient } = await import('@drift-labs/sdk');
+  return new DriftClient(config);
+};
+
+// Only load when needed
+button.onclick = async () => {
+  const client = await loadDriftClient();
+  await client.placeOrder(params);
+};
+```
+
+## Network Optimization
+
+### Request Batching
+
+Batch multiple RPC requests:
+
+```typescript
+const [account1, account2, account3] = await Promise.all([
+  connection.getAccountInfo(pubkey1),
+  connection.getAccountInfo(pubkey2),
+  connection.getAccountInfo(pubkey3)
+]);
+```
+
+### Debouncing Updates
+
+Debounce frequent updates:
+
+```typescript
+import { debounceTime } from 'rxjs/operators';
+
+priceUpdates$
+  .pipe(debounceTime(100)) // Wait 100ms between updates
+  .subscribe(price => {
+    updateUI(price);
+  });
+```
+
+### Request Deduplication
+
+Avoid duplicate concurrent requests:
+
+```typescript
+class RequestDeduplicator {
+  private pending = new Map<string, Promise<any>>();
+  
+  async fetch<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    if (this.pending.has(key)) {
+      return this.pending.get(key)!;
+    }
+    
+    const promise = fn().finally(() => {
+      this.pending.delete(key);
+    });
+    
+    this.pending.set(key, promise);
+    return promise;
+  }
+}
+
+const dedup = new RequestDeduplicator();
+
+// Multiple calls return same promise
+const result1 = dedup.fetch('user-account', () => fetchUserAccount());
+const result2 = dedup.fetch('user-account', () => fetchUserAccount());
+// Only one network request made
+```
+
+## Monitoring Performance
+
+### Measure RPC Latency
+
+```typescript
+const measureLatency = async (connection: Connection) => {
+  const start = performance.now();
+  await connection.getLatestBlockhash();
+  const end = performance.now();
+  return end - start;
+};
+
+const latency = await measureLatency(connection);
+console.log(`RPC latency: ${latency}ms`);
+```
+
+### Track Transaction Times
+
+```typescript
+const trackTransaction = async (fn: () => Promise<string>) => {
+  const start = performance.now();
+  const signature = await fn();
+  const sent = performance.now();
+  
+  await connection.confirmTransaction(signature);
+  const confirmed = performance.now();
+  
+  console.log({
+    sendTime: sent - start,
+    confirmTime: confirmed - sent,
+    totalTime: confirmed - start
+  });
+  
+  return signature;
+};
+```
+
+### Memory Profiling
+
+```typescript
+const measureMemory = () => {
+  if (performance.memory) {
+    return {
+      usedJSHeapSize: performance.memory.usedJSHeapSize / 1048576, // MB
+      totalJSHeapSize: performance.memory.totalJSHeapSize / 1048576,
+      jsHeapSizeLimit: performance.memory.jsHeapSizeLimit / 1048576
+    };
+  }
+  return null;
+};
+
+setInterval(() => {
+  console.log('Memory usage:', measureMemory());
+}, 10000);
+```
+
+## Best Practices Summary
+
+1. **Use connection pooling** for load balancing across RPCs
+2. **Implement caching** with circular buffers for time-series data
+3. **Batch operations** into single transactions when possible
+4. **Share intervals** across components to reduce overhead
+5. **Lazy load** heavy dependencies and initialize on demand
+6. **Clean up subscriptions** to prevent memory leaks
+7. **Import selectively** to minimize bundle size
+8. **Deduplicate requests** to avoid redundant network calls
+9. **Monitor performance** to identify bottlenecks
+10. **Choose appropriate commitment levels** based on reliability needs
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Environment Configuration" icon="gear" href="/guides/advanced/environment-configuration">
+    Configure RPC endpoints and network settings
+  </Card>
+  <Card title="Testing Guide" icon="vial" href="/guides/advanced/testing">
+    Test performance optimizations
+  </Card>
+</CardGroup>

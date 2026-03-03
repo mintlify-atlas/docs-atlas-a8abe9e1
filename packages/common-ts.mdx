@@ -1,0 +1,491 @@
+---
+title: '@drift-labs/common'
+description: 'Core utilities, clients, and helpers for Drift Protocol integration'
+icon: 'toolbox'
+---
+
+## Overview
+
+`@drift-labs/common` is the foundational package in the Drift Common monorepo, providing essential utilities, data clients, and helper functions for building applications on Drift Protocol. This package is framework-agnostic and can be used in Node.js, browser, or React Native environments.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @drift-labs/common
+```
+
+```bash yarn
+yarn add @drift-labs/common
+```
+
+```bash bun
+bun add @drift-labs/common
+```
+</CodeGroup>
+
+### Peer Dependencies
+
+This package requires the following peer dependencies:
+
+```bash
+npm install @drift-labs/sdk@^2.158.0-beta.0 @solana/web3.js@1.98.0
+```
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Market Data Clients" icon="chart-line">
+    WebSocket and REST clients for real-time market data
+  </Card>
+  
+  <Card title="Number Utilities" icon="calculator">
+    Precise number formatting and BigNumber conversions
+  </Card>
+  
+  <Card title="Configuration Management" icon="gear">
+    Environment-aware configuration for mainnet/devnet
+  </Card>
+  
+  <Card title="Drift Class Wrapper" icon="layer-group">
+    High-level interface for Drift Protocol operations
+  </Card>
+</CardGroup>
+
+## Core Exports
+
+### Configuration
+
+Initialize the package with your target environment:
+
+```typescript
+import { Config, Initialize } from '@drift-labs/common';
+import { DriftEnv } from '@drift-labs/sdk';
+
+// Initialize for mainnet
+const sdkConfig = Initialize(DriftEnv.MainnetBeta);
+
+// Access market configurations
+const spotMarkets = Config.spotMarketsLookup;
+const perpMarkets = Config.perpMarketsLookup;
+
+console.log('Initialized:', Config.initialized); // true
+```
+
+<Info>
+  The `Initialize` function must be called before using market lookups. It populates the `Config` object with market configurations for quick access.
+</Info>
+
+### Market Data Clients
+
+#### Candle Client
+
+Fetch and subscribe to candlestick data for charting:
+
+```typescript
+import { CandleClient } from '@drift-labs/common';
+import { CandleResolution } from '@drift-labs/sdk';
+
+const candleClient = new CandleClient({
+  env: 'mainnet-beta',
+});
+
+// Fetch historical candles
+const candles = await candleClient.fetchCandles({
+  marketId: { marketType: 'perp', marketIndex: 0 },
+  resolution: CandleResolution.ONE_HOUR,
+  fromTs: Date.now() / 1000 - 86400, // Last 24 hours
+  toTs: Date.now() / 1000,
+});
+
+// Subscribe to real-time updates
+const subscription = candleClient.subscribe({
+  marketId: { marketType: 'perp', marketIndex: 0 },
+  resolution: CandleResolution.ONE_MINUTE,
+  callback: (candle) => {
+    console.log('New candle:', candle);
+  },
+});
+
+// Unsubscribe when done
+subscription.unsubscribe();
+```
+
+<Note>
+  The Candle Client implements intelligent caching for the most recent 1000 candles to minimize API requests. See the source code comments in `clients/candleClient.ts:17` for implementation details.
+</Note>
+
+#### DLOB WebSocket Client
+
+Connect to the Decentralized Limit Order Book (DLOB) server:
+
+```typescript
+import { DlobWebsocketClient } from '@drift-labs/common';
+
+const dlobClient = new DlobWebsocketClient({
+  url: 'wss://dlob.drift.trade/ws',
+});
+
+await dlobClient.connect();
+
+// Subscribe to market updates
+dlobClient.subscribe({
+  marketType: 'perp',
+  marketIndex: 0,
+  callback: (update) => {
+    console.log('DLOB update:', update);
+  },
+});
+```
+
+### Number Utilities
+
+The `NumLib` class provides utilities for converting between BigNumbers and display formats:
+
+```typescript
+import { NumLib } from '@drift-labs/common';
+import { BN, QUOTE_PRECISION } from '@drift-labs/sdk';
+
+// Convert BN to display number
+const amount = new BN('1000000'); // 1 USDC in base units
+const displayAmount = NumLib.formatNum.toTradePrecision(
+  amount.toNumber() / QUOTE_PRECISION.toNumber()
+);
+console.log(displayAmount); // "1.00"
+
+// Format with locale
+NumLib.setLocale('en-US');
+const formatted = NumLib.formatNum.toTradePrecisionString(1234.567, true);
+console.log(formatted); // "1,234.57"
+```
+
+<Tip>
+  Use `NumLib.formatNum.toTradePrecision` for trading amounts to ensure consistent precision across your UI. See `utils/NumLib.ts:56` for implementation.
+</Tip>
+
+### Drift Class
+
+High-level wrapper for common Drift Protocol operations:
+
+```typescript
+import { Drift } from '@drift-labs/common';
+import { Connection, Keypair } from '@solana/web3.js';
+
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+const wallet = Keypair.generate();
+
+const drift = new Drift({
+  connection,
+  wallet,
+  env: 'mainnet-beta',
+});
+
+await drift.subscribe();
+
+// Access account data
+const user = drift.getUser();
+const positions = drift.getPositions();
+const collateral = drift.getCollateral();
+```
+
+### Utility Functions
+
+#### Price Impact Calculation
+
+```typescript
+import { calculatePriceImpact } from '@drift-labs/common';
+
+const impact = calculatePriceImpact({
+  entryPrice: 100,
+  exitPrice: 98,
+  side: 'long',
+});
+console.log(impact); // -2%
+```
+
+#### Priority Fee Helpers
+
+```typescript
+import { getPriorityFeeEstimate } from '@drift-labs/common';
+
+const priorityFee = await getPriorityFeeEstimate(connection, {
+  transaction: tx,
+  lookbackSlots: 150,
+});
+```
+
+#### Token Utilities
+
+```typescript
+import { getTokenAccount, getTokenBalance } from '@drift-labs/common';
+import { PublicKey } from '@solana/web3.js';
+
+const tokenAccount = await getTokenAccount(
+  connection,
+  new PublicKey('...')
+);
+const balance = await getTokenBalance(connection, tokenAccount);
+```
+
+## Environment Constants
+
+Access environment-specific URLs and configurations:
+
+```typescript
+import { EnvironmentConstants } from '@drift-labs/common';
+
+const constants = EnvironmentConstants['mainnet-beta'];
+
+console.log(constants.driftEnv); // 'mainnet-beta'
+console.log(constants.rpcEndpoint); // Default RPC endpoint
+```
+
+## Error Handling
+
+The package includes error code mappings for Drift and Jupiter programs:
+
+```typescript
+import { DriftErrors, JupV6Errors } from '@drift-labs/common';
+
+// Decode Drift program errors
+const errorCode = 6000;
+const errorMessage = DriftErrors[errorCode];
+console.log(errorMessage);
+
+// Decode Jupiter errors
+const jupError = JupV6Errors[errorCode];
+```
+
+## Advanced Features
+
+### WebSocket Multiplexing
+
+The `MultiplexWebSocket` class allows multiple subscriptions over a single WebSocket connection:
+
+```typescript
+import { MultiplexWebSocket } from '@drift-labs/common';
+
+const ws = new MultiplexWebSocket('wss://example.com/ws');
+
+ws.subscribe('channel1', (data) => {
+  console.log('Channel 1:', data);
+});
+
+ws.subscribe('channel2', (data) => {
+  console.log('Channel 2:', data);
+});
+
+ws.connect();
+```
+
+<Info>
+  See `utils/MultiplexWebSocket.ts:1` for the full implementation and connection management logic.
+</Info>
+
+### Circular Buffers
+
+Efficient data structures for time-series data:
+
+```typescript
+import { CircularBuffer } from '@drift-labs/common';
+
+const buffer = new CircularBuffer<number>(100); // Max 100 items
+
+buffer.push(1);
+buffer.push(2);
+buffer.push(3);
+
+const latest = buffer.peek(); // 3
+const all = buffer.toArray(); // [1, 2, 3]
+```
+
+### Shared Intervals
+
+Optimize polling with shared intervals across components:
+
+```typescript
+import { SharedInterval } from '@drift-labs/common';
+
+const interval = new SharedInterval(1000); // 1 second
+
+interval.subscribe(() => {
+  console.log('Tick 1');
+});
+
+interval.subscribe(() => {
+  console.log('Tick 2');
+});
+
+interval.start();
+
+// Both callbacks execute on the same interval
+// Stops automatically when all subscriptions are removed
+```
+
+<Tip>
+  Use `SharedInterval` instead of multiple `setInterval` calls to reduce CPU usage. See `utils/SharedInterval.ts:1`.
+</Tip>
+
+## Browser Support
+
+The package includes browser-specific builds with polyfills:
+
+```json
+{
+  "browser": {
+    "./lib/utils/logger.js": "./lib/utils/logger.browser.js"
+  }
+}
+```
+
+Browser builds replace Node.js-specific modules (like `winston`) with browser-compatible alternatives.
+
+## TypeScript Support
+
+Full type definitions are included:
+
+```typescript
+import type {
+  MarketId,
+  MarketSymbol,
+  JsonCandle,
+  UIEnv,
+} from '@drift-labs/common';
+
+// All types are fully documented
+const marketId: MarketId = {
+  marketType: 'perp',
+  marketIndex: 0,
+};
+```
+
+## Common Use Cases
+
+### Building a Trading Interface
+
+```typescript
+import { 
+  Initialize, 
+  Config, 
+  CandleClient, 
+  NumLib 
+} from '@drift-labs/common';
+import { DriftEnv, CandleResolution } from '@drift-labs/sdk';
+
+// 1. Initialize configuration
+Initialize(DriftEnv.MainnetBeta);
+
+// 2. Get market info
+const solPerpMarket = Config.perpMarketsLookup[0];
+console.log('Market:', solPerpMarket.baseAssetSymbol);
+
+// 3. Fetch price data
+const candleClient = new CandleClient({ env: 'mainnet-beta' });
+const candles = await candleClient.fetchCandles({
+  marketId: { marketType: 'perp', marketIndex: 0 },
+  resolution: CandleResolution.ONE_HOUR,
+  fromTs: Date.now() / 1000 - 86400,
+  toTs: Date.now() / 1000,
+});
+
+// 4. Format prices for display
+const formattedPrices = candles.map(candle => ({
+  time: candle.time,
+  price: NumLib.formatNum.toTradePrecisionString(candle.close),
+}));
+```
+
+### Monitoring Account Data
+
+```typescript
+import { Drift, DriftEvents } from '@drift-labs/common';
+
+const drift = new Drift({ connection, wallet, env: 'mainnet-beta' });
+await drift.subscribe();
+
+// Listen for account updates
+drift.eventEmitter.on(DriftEvents.UPDATE, () => {
+  const positions = drift.getPositions();
+  const collateral = drift.getCollateral();
+  
+  console.log('Positions updated:', positions);
+  console.log('Collateral:', collateral.toString());
+});
+```
+
+## Package Structure
+
+```
+common-ts/
+├── src/
+│   ├── clients/           # Data clients (candles, DLOB, etc.)
+│   ├── constants/         # Error codes and constants
+│   ├── drift/            # Drift class and related utilities
+│   ├── types/            # TypeScript type definitions
+│   ├── utils/            # Utility functions and classes
+│   ├── Config.ts         # Configuration management
+│   └── index.ts          # Main export file
+├── lib/                  # Compiled output
+├── package.json
+└── tsconfig.json
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="React Package" icon="react" href="/packages/react">
+    React hooks and components built on @drift-labs/common
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="/api-reference">
+    Complete API documentation
+  </Card>
+  
+  <Card title="SDK Documentation" icon="code" href="https://drift-labs.github.io/protocol-v2">
+    Official Drift SDK documentation
+  </Card>
+  
+  <Card title="GitHub Repository" icon="github" href="https://github.com/drift-labs/drift-common/tree/master/common-ts">
+    View source code
+  </Card>
+</CardGroup>
+
+## Dependencies
+
+<AccordionGroup>
+  <Accordion title="Main Dependencies">
+    - `@drift-labs/sdk`: Core Drift Protocol SDK
+    - `@solana/web3.js`: Solana Web3 library
+    - `@solana/spl-token`: SPL Token utilities
+    - `rxjs`: Reactive programming library
+    - `immer`: Immutable state management
+    - `winston`: Logging (Node.js)
+  </Accordion>
+  
+  <Accordion title="Development Dependencies">
+    - `typescript`: TypeScript compiler
+    - `mocha`: Testing framework
+    - `chai`: Assertion library
+    - `esbuild`: Fast bundler
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Module resolution errors">
+    Ensure your `tsconfig.json` has `moduleResolution` set to `"node"` and `esModuleInterop` enabled.
+  </Accordion>
+  
+  <Accordion title="BigNumber precision issues">
+    Always use the `NumLib` utilities when converting between BN and display formats to avoid floating-point errors.
+  </Accordion>
+  
+  <Accordion title="WebSocket connection failures">
+    Check that your environment allows WebSocket connections and that you're using the correct URLs from `EnvironmentConstants`.
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  This package requires Node.js ^24.x.x. Ensure your environment meets this requirement.
+</Warning>

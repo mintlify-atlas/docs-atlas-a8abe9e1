@@ -1,0 +1,501 @@
+---
+title: 'Configuration & Initialization'
+description: 'Configure and initialize the Drift SDK for your application'
+---
+
+## Overview
+
+Drift Common provides a centralized configuration system through the `Config` object and `Initialize()` function. This system manages SDK configuration, market lookups, and environment-specific settings.
+
+## Config Object
+
+The global `Config` object provides access to initialized SDK configuration and market data:
+
+```typescript
+export const Config: {
+  initialized: boolean;
+  spotMarketsLookup: SpotMarketConfig[];
+  perpMarketsLookup: PerpMarketConfig[];
+  sdkConfig: ReturnType<typeof initialize>;
+}
+```
+
+See Config.ts:8-18 for implementation details.
+
+### Properties
+
+**initialized**
+- Type: `boolean`
+- Indicates whether the SDK has been initialized
+- Set to `true` after calling `Initialize()`
+
+**spotMarketsLookup**
+- Type: `SpotMarketConfig[]`
+- Array indexed by market index for fast spot market config lookups
+- Populated during initialization
+
+**perpMarketsLookup**
+- Type: `PerpMarketConfig[]`
+- Array indexed by market index for fast perp market config lookups
+- Populated during initialization
+
+**sdkConfig**
+- Type: `ReturnType<typeof initialize>`
+- The complete SDK configuration from `@drift-labs/sdk`
+- Includes all market configs, program IDs, and environment settings
+
+## Initialize Function
+
+The `Initialize()` function sets up the SDK configuration for a specific environment:
+
+```typescript
+import { Initialize } from '@drift/common';
+import { DriftEnv } from '@drift-labs/sdk';
+
+// Initialize for mainnet
+const sdkConfig = Initialize('mainnet-beta');
+
+// Initialize for devnet
+const sdkConfig = Initialize('devnet');
+```
+
+See Config.ts:20-48 for Initialize implementation.
+
+### Parameters
+
+**env**
+- Type: `DriftEnv`
+- Values: `'mainnet-beta'` | `'devnet'`
+- Determines which network configuration to load
+
+### Return Value
+
+Returns the SDK configuration object from `@drift-labs/sdk` with:
+- `SPOT_MARKETS`: Array of all spot market configurations
+- `PERP_MARKETS`: Array of all perpetual market configurations
+- Environment-specific settings
+- Program IDs and addresses
+
+### What It Does
+
+1. **Initializes SDK Configuration**
+   ```typescript
+   const SDKConfig = initialize({ env });
+   ```
+
+2. **Creates Market Lookup Arrays**
+   - Finds maximum market indexes for spot and perp markets
+   - Creates arrays sized to the maximum index
+   - Populates arrays with market configs at their respective indexes
+
+   ```typescript
+   const maxSpotMarketIndex = Math.max(
+     ...SDKConfig.SPOT_MARKETS.map((market) => market.marketIndex)
+   );
+   const spotMarkets = new Array(maxSpotMarketIndex);
+   SDKConfig.SPOT_MARKETS.forEach((spotMarket) => {
+     spotMarkets[spotMarket.marketIndex] = spotMarket;
+   });
+   ```
+
+3. **Updates Global Config**
+   ```typescript
+   Config.spotMarketsLookup = spotMarkets;
+   Config.perpMarketsLookup = markets;
+   Config.initialized = true;
+   ```
+
+### Usage in Applications
+
+**Client Applications**
+```typescript
+import { Initialize, Config } from '@drift/common';
+
+// Initialize once at application startup
+Initialize('mainnet-beta');
+
+// Access market configurations anywhere
+const solSpotConfig = Config.spotMarketsLookup[1]; // SOL spot market
+const solPerpConfig = Config.perpMarketsLookup[0]; // SOL-PERP market
+
+// Check if initialized
+if (Config.initialized) {
+  console.log('SDK is ready');
+}
+```
+
+**Server Applications**
+```typescript
+import { Initialize } from '@drift/common';
+import { CentralServerDrift } from '@drift/common';
+
+// Initialize before creating clients
+Initialize('mainnet-beta');
+
+const serverDrift = new CentralServerDrift({
+  solanaRpcEndpoint: process.env.RPC_URL,
+  driftEnv: 'mainnet-beta',
+  supportedPerpMarkets: [0, 1, 2],
+  supportedSpotMarkets: [0, 1],
+});
+```
+
+<Note>
+The `Initialize()` function is automatically called by `AuthorityDrift` during construction. You only need to call it manually if you're using `Config` directly or need to initialize before creating clients.
+</Note>
+
+## DriftClient Configuration
+
+When creating Drift clients, you can provide additional configuration options:
+
+### AuthorityDrift Configuration
+
+```typescript
+import { AuthorityDrift } from '@drift/common';
+
+const config: AuthorityDriftConfig = {
+  // Required
+  solanaRpcEndpoint: 'https://api.mainnet-beta.solana.com',
+  driftEnv: 'mainnet-beta',
+  
+  // Optional
+  wallet: myWallet, // IWalletV2 instance
+  driftDlobServerHttpUrl: 'https://dlob.drift.trade',
+  tradableMarkets: [], // Filter markets to subscribe to
+  selectedTradeMarket: marketId, // Primary trading market
+  
+  // Additional DriftClient config
+  additionalDriftClientConfig: {
+    txVersion: 0,
+    enableMetricsEvents: false,
+    accountSubscription: {
+      type: 'polling',
+      accountLoader: customAccountLoader,
+    },
+  },
+  
+  // Priority fee subscriber config
+  priorityFeeSubscriberConfig: {
+    priorityFeeMethod: PriorityFeeMethod.SOLANA,
+    frequencyMs: 10_000,
+    sampleSize: 100,
+  },
+  
+  // Orderbook configuration
+  orderbookConfig: {
+    dlobWebSocketUrl: 'wss://dlob.drift.trade/ws',
+    orderbookGrouping: 0.01, // Price grouping for orderbook
+  },
+};
+
+const authorityDrift = new AuthorityDrift(config);
+```
+
+See AuthorityDrift/index.ts:106-119 for AuthorityDriftConfig interface.
+
+### CentralServerDrift Configuration
+
+```typescript
+import { CentralServerDrift } from '@drift/common';
+
+const config = {
+  // Required
+  solanaRpcEndpoint: 'https://api.mainnet-beta.solana.com',
+  driftEnv: 'mainnet-beta',
+  supportedPerpMarkets: [0, 1, 2], // Market indexes to support
+  supportedSpotMarkets: [0, 1],
+  
+  // Optional
+  additionalDriftClientConfig: {
+    txVersion: 0,
+    txParams: {
+      computeUnits: 200000,
+      computeUnitsPrice: 1000,
+    },
+    enableMetricsEvents: false,
+  },
+  
+  // Priority fee configuration
+  priorityFeeSubscriberConfig: {
+    priorityFeeMethod: PriorityFeeMethod.SOLANA,
+    addresses: customHighActivityAccounts,
+    frequencyMs: 10_000,
+  },
+};
+
+const serverDrift = new CentralServerDrift(config);
+```
+
+See CentralServerDrift/index.ts:96-193 for constructor implementation.
+
+## Market Configurations
+
+Market configurations contain essential information about each market:
+
+### Spot Market Config
+
+```typescript
+interface SpotMarketConfig {
+  marketIndex: number;
+  symbol: string;
+  mint: PublicKey;
+  precision: number;
+  precisionExp: BN;
+  oracle: PublicKey;
+  oracleSource: OracleSource;
+  // ... additional properties
+}
+```
+
+**Example: Access SOL Spot Market**
+```typescript
+Initialize('mainnet-beta');
+
+const solSpot = Config.spotMarketsLookup[1];
+console.log(solSpot.symbol); // 'SOL'
+console.log(solSpot.marketIndex); // 1
+console.log(solSpot.precision); // 1e9 (9 decimals)
+```
+
+### Perp Market Config
+
+```typescript
+interface PerpMarketConfig {
+  marketIndex: number;
+  symbol: string;
+  baseAssetSymbol: string;
+  oracle: PublicKey;
+  oracleSource: OracleSource;
+  // ... additional properties
+}
+```
+
+**Example: Access SOL-PERP Market**
+```typescript
+Initialize('mainnet-beta');
+
+const solPerp = Config.perpMarketsLookup[0];
+console.log(solPerp.symbol); // 'SOL-PERP'
+console.log(solPerp.marketIndex); // 0
+console.log(solPerp.baseAssetSymbol); // 'SOL'
+```
+
+## Transaction Parameters
+
+Configure transaction parameters for optimal execution:
+
+```typescript
+import { TxParams } from '@drift-labs/sdk';
+
+const txParams: TxParams = {
+  // Compute units for the transaction
+  computeUnits: 200000,
+  
+  // Priority fee in micro-lamports
+  computeUnitsPrice: 1000,
+  
+  // Use simulated compute units (recommended)
+  useSimulatedComputeUnits: true,
+  
+  // Buffer multiplier for compute units
+  computeUnitsBufferMultiplier: 1.2,
+};
+
+// Use with client operations
+const depositTxn = await serverDrift.getDepositTxn(
+  userAccountPubkey,
+  amount,
+  spotMarketIndex,
+  { txParams }
+);
+```
+
+### Dynamic Priority Fees
+
+Both clients automatically calculate priority fees based on network conditions:
+
+```typescript
+// Get current recommended tx params
+const txParams = authorityDrift.getTxParams();
+
+// Override specific parameters
+const customTxParams = authorityDrift.getTxParams({
+  computeUnits: 300000,
+});
+```
+
+The priority fee is calculated from:
+- `PriorityFeeSubscriber` monitoring network conditions
+- High-activity market accounts
+- Configurable priority fee methods (SOLANA, HELIUS, etc.)
+
+See CentralServerDrift/index.ts:330-346 for getTxParams implementation.
+
+## Account Loader Configuration
+
+The account loader fetches account data from the RPC:
+
+```typescript
+import { CustomizedCadenceBulkAccountLoader } from '@drift-labs/sdk';
+import { Connection } from '@solana/web3.js';
+
+const connection = new Connection(rpcEndpoint);
+
+const accountLoader = new CustomizedCadenceBulkAccountLoader(
+  connection,
+  'confirmed', // commitment level
+  1000 // polling frequency in ms
+);
+```
+
+Default configuration:
+- **Commitment**: `'confirmed'`
+- **Polling Frequency**: 1000ms (1 second)
+
+See blockchain.ts:4-5 for default configuration.
+
+## Transaction Sender Configuration
+
+The transaction sender handles transaction submission and confirmation:
+
+```typescript
+import { WhileValidTxSender, ConfirmationStrategy } from '@drift-labs/sdk';
+
+const txSender = new WhileValidTxSender({
+  connection,
+  wallet,
+  additionalConnections: [], // Extra RPC connections for redundancy
+  additionalTxSenderCallbacks: [],
+  txHandler: driftClient.txHandler,
+  confirmationStrategy: ConfirmationStrategy.Combo,
+  retrySleep: 4000, // Retry interval in ms
+});
+```
+
+Default configuration:
+- **Confirmation Strategy**: `ConfirmationStrategy.Combo`
+- **Retry Interval**: 4000ms (4 seconds)
+
+See blockchain.ts:6-8 for default configuration.
+
+## Subscription Configuration
+
+Configure how frequently different market categories are polled:
+
+```typescript
+// Polling cadences (in milliseconds)
+const SELECTED_MARKET_ACCOUNT_POLLING_CADENCE = 1_000; // 1 second
+const USER_INVOLVED_MARKET_ACCOUNT_POLLING_CADENCE = 1_000; // 1 second  
+const USER_NOT_INVOLVED_MARKET_ACCOUNT_POLLING_CADENCE = 60_000; // 1 minute
+```
+
+These determine how often market accounts are polled based on:
+- **Selected Market**: The market actively being traded
+- **User Involved**: Markets where the user has positions/orders
+- **User Not Involved**: Other markets for background updates
+
+See blockchain.ts:10-12 for polling cadences.
+
+## Priority Fee Subscriber
+
+Configure priority fee tracking:
+
+```typescript
+import { PriorityFeeSubscriber, PriorityFeeMethod } from '@drift-labs/sdk';
+
+const priorityFeeConfig: PriorityFeeSubscriberConfig = {
+  connection,
+  
+  // Method for calculating priority fees
+  priorityFeeMethod: PriorityFeeMethod.SOLANA,
+  
+  // Specific market accounts to monitor
+  driftMarkets: [
+    { marketType: 'perp', marketIndex: 0 }, // SOL-PERP
+    { marketType: 'spot', marketIndex: 1 }, // SOL spot
+  ],
+  
+  // Additional high-traffic accounts
+  addresses: [
+    new PublicKey('8UJgxaiQx5nTrdDgph5FiahMmzduuLTLf5WmsPegYA6W'),
+  ],
+  
+  // Polling frequency
+  frequencyMs: 10_000,
+  
+  // Sample size for calculation
+  sampleSize: 100,
+};
+
+const priorityFeeSubscriber = new PriorityFeeSubscriber(priorityFeeConfig);
+await priorityFeeSubscriber.subscribe();
+
+// Get current priority fee
+const priorityFee = priorityFeeSubscriber.getCustomStrategyResult();
+```
+
+## Best Practices
+
+### Initialization
+
+1. **Initialize Once**: Call `Initialize()` once at application startup
+2. **Environment Variables**: Store RPC endpoints and environment in config files
+3. **Error Handling**: Wrap initialization in try-catch blocks
+
+```typescript
+try {
+  const sdkConfig = Initialize(process.env.DRIFT_ENV as DriftEnv);
+  console.log('SDK initialized successfully');
+} catch (error) {
+  console.error('Failed to initialize SDK:', error);
+  process.exit(1);
+}
+```
+
+### Market Lookups
+
+1. **Use Config Arrays**: Access markets via `Config.spotMarketsLookup` and `Config.perpMarketsLookup`
+2. **Check Bounds**: Verify market index is valid before accessing
+3. **Cache Configs**: Store frequently used configs in local variables
+
+```typescript
+// Efficient market config access
+const getMarketConfig = (marketIndex: number, isPerp: boolean) => {
+  const lookup = isPerp ? Config.perpMarketsLookup : Config.spotMarketsLookup;
+  if (marketIndex >= lookup.length || !lookup[marketIndex]) {
+    throw new Error(`Invalid market index: ${marketIndex}`);
+  }
+  return lookup[marketIndex];
+};
+```
+
+### Client Configuration
+
+1. **Minimize Subscriptions**: Only subscribe to markets you need
+2. **Use Environment Variables**: Don't hardcode endpoints or environments
+3. **Configure Priority Fees**: Set up priority fee tracking for optimal execution
+4. **Handle Cleanup**: Always unsubscribe when done
+
+```typescript
+const authorityDrift = new AuthorityDrift({
+  solanaRpcEndpoint: process.env.SOLANA_RPC_URL,
+  driftEnv: process.env.DRIFT_ENV as DriftEnv,
+  tradableMarkets: getRequiredMarkets(), // Only subscribe to needed markets
+  priorityFeeSubscriberConfig: {
+    priorityFeeMethod: PriorityFeeMethod.SOLANA,
+  },
+});
+
+try {
+  await authorityDrift.subscribe();
+  // ... use client
+} finally {
+  await authorityDrift.unsubscribe();
+}
+```
+
+## Next Steps
+
+- Learn about [Environment Constants](/concepts/environment) for network-specific URLs
+- Explore [Drift Client Architecture](/concepts/drift-client) for client usage
+- Check the [API Reference](/api/drift/overview) for detailed configuration options

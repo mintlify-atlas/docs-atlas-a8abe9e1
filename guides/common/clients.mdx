@@ -1,0 +1,361 @@
+---
+title: Using Client Modules
+description: Learn how to use client modules in the Drift Common package for fetching market data
+---
+
+The Drift Common package provides several client modules for interacting with Drift's data infrastructure. This guide covers the main client modules and their usage.
+
+## CandleClient
+
+The `CandleClient` fetches and subscribes to historical and real-time candle (OHLCV) data from the Drift Data API.
+
+### Features
+
+- Fetch historical candles with automatic pagination
+- Subscribe to real-time candle updates via WebSocket
+- Intelligent caching for recent candles (last 1000)
+- Support for multiple concurrent subscriptions
+- Event-driven architecture
+
+### Basic Usage
+
+<Steps>
+  <Step title="Initialize the client">
+    ```typescript
+    import { CandleClient } from '@drift-labs/common';
+
+    const candleClient = new CandleClient();
+    ```
+  </Step>
+
+  <Step title="Fetch historical candles">
+    ```typescript
+    import { CandleResolution } from '@drift-labs/sdk';
+    import { MarketId, UIEnv } from '@drift-labs/common';
+
+    const env: UIEnv = {
+      sdkEnv: 'mainnet-beta',
+      isMainnet: true,
+      isDevnet: false,
+      isStaging: false,
+      key: 'mainnet',
+    };
+
+    const marketId: MarketId = {
+      marketIndex: 0,
+      isPerp: true,
+      key: 'perp-0',
+    };
+
+    // Fetch 1-hour candles for the last 24 hours
+    const now = Math.floor(Date.now() / 1000);
+    const oneDayAgo = now - 24 * 60 * 60;
+
+    const candles = await candleClient.fetch({
+      env,
+      marketId,
+      resolution: '60', // 1 hour
+      fromTs: oneDayAgo,
+      toTs: now,
+    });
+
+    console.log(`Fetched ${candles.length} candles`);
+    candles.forEach(candle => {
+      console.log({
+        time: new Date(candle.ts * 1000),
+        open: candle.open,
+        high: candle.high,
+        low: candle.low,
+        close: candle.close,
+        volume: candle.volume,
+      });
+    });
+    ```
+  </Step>
+
+  <Step title="Subscribe to real-time updates">
+    ```typescript
+    // Subscribe to candle updates
+    const subscriptionKey = 'sol-perp-1h';
+
+    await candleClient.subscribe(
+      {
+        env,
+        marketId,
+        resolution: '60',
+      },
+      subscriptionKey
+    );
+
+    // Listen for candle updates
+    candleClient.on(subscriptionKey, 'candle-update', (candle) => {
+      console.log('New candle:', {
+        time: new Date(candle.ts * 1000),
+        close: candle.close,
+        volume: candle.volume,
+      });
+    });
+    ```
+  </Step>
+
+  <Step title="Clean up subscriptions">
+    ```typescript
+    // Unsubscribe from a specific subscription
+    candleClient.unsubscribe(subscriptionKey);
+
+    // Or unsubscribe from all
+    candleClient.unsubscribeAll();
+    ```
+  </Step>
+</Steps>
+
+### Supported Resolutions
+
+The CandleClient supports these time resolutions:
+
+| Resolution | Description |
+|------------|-------------|
+| `'1'` | 1 minute |
+| `'5'` | 5 minutes |
+| `'15'` | 15 minutes |
+| `'60'` | 1 hour |
+| `'240'` | 4 hours |
+| `'D'` | 1 day |
+
+### Caching Behavior
+
+The CandleClient implements intelligent caching:
+
+- **Recent candles** (last 1000): Cached in memory, fetched without `startTs` parameter for better API caching
+- **Historical candles**: Fetched with pagination using `startTs` parameter
+
+```typescript
+// First fetch - hits API
+const candles1 = await candleClient.fetch({
+  env,
+  marketId,
+  resolution: '60',
+  fromTs: now - 3600,
+  toTs: now,
+});
+
+// Second fetch - served from cache if within recent 1000 candles
+const candles2 = await candleClient.fetch({
+  env,
+  marketId,
+  resolution: '60',
+  fromTs: now - 3600,
+  toTs: now,
+});
+```
+
+## SwiftClient
+
+The `SwiftClient` enables fast order execution through Drift's Swift infrastructure. Swift orders are off-chain signed messages that are verified and executed on-chain.
+
+### Initialization
+
+<Steps>
+  <Step title="Initialize the client">
+    ```typescript
+    import { SwiftClient, EnvironmentConstants } from '@drift-labs/common';
+
+    SwiftClient.init(
+      EnvironmentConstants.swiftServerUrl.mainnet,
+      'my-trading-app' // Your app identifier
+    );
+    ```
+  </Step>
+
+  <Step title="Check order type support">
+    ```typescript
+    import { OrderType } from '@drift-labs/sdk';
+
+    const isSupported = SwiftClient.supportedOrderTypes.includes(
+      OrderType.MARKET
+    );
+    console.log('Market orders supported:', isSupported);
+    // Supported: MARKET and LIMIT orders
+    ```
+  </Step>
+
+  <Step title="Submit a Swift order">
+    ```typescript
+    import { Observable } from 'rxjs';
+    import type {
+      SwiftOrderEvent,
+      SwiftOrderEventWithParams,
+    } from '@drift-labs/common';
+
+    // Create your signed order message
+    const orderParamsMessage = {
+      // ... order parameters
+    };
+
+    const swiftOrderUuid = new Uint8Array(32); // Generate UUID
+
+    // Submit order and observe status
+    const orderObservable: Observable<SwiftOrderEventWithParams<SwiftOrderEvent>> =
+      SwiftClient.placeOrder({
+        swiftOrderUuid,
+        orderParamsMessage,
+      });
+
+    // Subscribe to order events
+    orderObservable.subscribe({
+      next: (event) => {
+        if (event.type === 'sent') {
+          console.log('Order sent to Swift server');
+        } else if (event.type === 'confirmed') {
+          console.log('Order confirmed:', event.orderId);
+        } else if (event.type === 'errored') {
+          console.error('Order failed:', event.message);
+        }
+      },
+      error: (error) => {
+        console.error('Order submission error:', error);
+      },
+      complete: () => {
+        console.log('Order flow complete');
+      },
+    });
+    ```
+  </Step>
+</Steps>
+
+### Swift Order Events
+
+Swift orders emit three types of events:
+
+```typescript
+type SwiftOrderEvent =
+  | { type: 'sent'; hash: string }              // Order sent to server
+  | { type: 'confirmed'; hash: string; orderId: string } // Order confirmed on-chain
+  | { type: 'errored' | 'expired'; hash: string; message?: string }; // Order failed
+```
+
+### Error Handling
+
+```typescript
+import { catchError, of } from 'rxjs';
+
+SwiftClient.placeOrder({ swiftOrderUuid, orderParamsMessage })
+  .pipe(
+    catchError(error => {
+      console.error('Order failed:', error);
+      // Handle error gracefully
+      return of({ type: 'errored', message: error.message });
+    })
+  )
+  .subscribe(event => {
+    console.log('Event:', event);
+  });
+```
+
+## MarketDataFeed
+
+The `MarketDataFeed` provides a unified interface for subscribing to various market data streams.
+
+### Subscribing to Market Data
+
+```typescript
+import { MarketDataFeed } from '@drift-labs/common';
+
+// Subscribe to candle data
+const subscription = MarketDataFeed.subscribe({
+  type: 'candles',
+  resolution: '60',
+  env,
+  marketSymbol: 'SOL-PERP',
+});
+
+// Listen for updates
+subscription.observable.subscribe((candle) => {
+  console.log('New candle:', candle);
+});
+
+// Unsubscribe when done
+MarketDataFeed.unsubscribe(subscription.id);
+```
+
+## Client Configuration
+
+### Environment-Specific URLs
+
+```typescript
+import { EnvironmentConstants } from '@drift-labs/common';
+
+// Mainnet
+const mainnetConfig = {
+  dataApi: EnvironmentConstants.dataServerUrl.mainnet,
+  dlobWs: EnvironmentConstants.dlobServerUrl.mainnet,
+  swift: EnvironmentConstants.swiftServerUrl.mainnet,
+};
+
+// Devnet
+const devnetConfig = {
+  dataApi: EnvironmentConstants.dataServerUrl.dev,
+  dlobWs: EnvironmentConstants.dlobServerUrl.dev,
+  swift: EnvironmentConstants.swiftServerUrl.dev,
+};
+
+console.log('Mainnet Data API:', mainnetConfig.dataApi);
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Managing Subscriptions">
+    Always clean up subscriptions when components unmount:
+
+    ```typescript
+    useEffect(() => {
+      const key = 'my-subscription';
+      candleClient.subscribe(config, key);
+
+      return () => {
+        candleClient.unsubscribe(key);
+      };
+    }, []);
+    ```
+  </Accordion>
+
+  <Accordion title="Error Handling">
+    Implement robust error handling for network failures:
+
+    ```typescript
+    try {
+      const candles = await candleClient.fetch(config);
+      // Process candles
+    } catch (error) {
+      console.error('Failed to fetch candles:', error);
+      // Implement retry logic or show user-friendly error
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Rate Limiting">
+    Be mindful of API rate limits when fetching data:
+
+    ```typescript
+    // Fetch in batches with delays
+    const markets = [market1, market2, market3];
+
+    for (const market of markets) {
+      await candleClient.fetch({ ...config, marketId: market });
+      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="WebSocket Integration" icon="plug" href="/guides/common/websockets">
+    Learn about real-time WebSocket clients
+  </Card>
+  <Card title="Utility Functions" icon="wrench" href="/guides/common/utilities">
+    Explore helper functions and utilities
+  </Card>
+</CardGroup>

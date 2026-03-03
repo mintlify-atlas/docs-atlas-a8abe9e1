@@ -1,0 +1,132 @@
+---
+title: 'Clients Overview'
+description: 'Overview of client modules for market data and order execution'
+---
+
+## Overview
+
+The Drift Common library provides several specialized client modules for interacting with market data feeds and executing orders:
+
+<CardGroup cols={2}>
+  <Card title="CandleClient" icon="chart-candlestick" href="/api/clients/candle-client">
+    Fetch and subscribe to candlestick data from the Drift Data API
+  </Card>
+  
+  <Card title="MarketDataFeed" icon="rss" href="/api/clients/market-data-feed">
+    Singleton websocket manager for candles and trades with subscription sharing
+  </Card>
+  
+  <Card title="DlobWebsocketClient" icon="book-open" href="/api/clients/dlob-websocket">
+    Real-time orderbook data via websocket with reactive streams
+  </Card>
+  
+  <Card title="SwiftClient" icon="bolt" href="/api/clients/swift-client">
+    Fast order execution via the Swift server with confirmation tracking
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Market Data
+
+- **Historical & Real-time Candles**: Fetch historical candle data and subscribe to live updates
+- **Trade Feeds**: Subscribe to real-time trade execution data
+- **Orderbook Streaming**: Real-time L2 orderbook depth data
+- **Subscription Sharing**: Efficient websocket connection pooling
+
+### Order Execution
+
+- **Swift Orders**: Lightning-fast order execution via specialized infrastructure
+- **Order Confirmation**: Multiple confirmation strategies (polling, websocket)
+- **Event Streams**: Observable-based order lifecycle events
+
+## Common Patterns
+
+### Websocket Management
+
+All clients use sophisticated websocket management:
+
+- Automatic reconnection handling
+- Subscription multiplexing (multiple subscribers share connections)
+- Message filtering and routing
+- Heartbeat monitoring
+
+### Reactive Streams
+
+Clients use RxJS observables for data streaming:
+
+```typescript
+// Subscribe to data stream
+const subscription = dataStream.subscribe({
+  next: (data) => handleData(data),
+  error: (err) => handleError(err),
+  complete: () => handleComplete()
+});
+
+// Clean up when done
+subscription.unsubscribe();
+```
+
+### Caching Strategies
+
+Clients implement intelligent caching:
+
+- **CandleClient**: Caches recent 1000 candles for instant retrieval
+- **URL Caching**: Prevents repeated string concatenation overhead
+- **String Interning**: Reduces memory allocation for frequently used keys
+
+## Usage Guidelines
+
+### Initialization
+
+Most clients require initialization before use:
+
+```typescript
+// SwiftClient requires initialization
+SwiftClient.init('https://swift.drift.trade', 'my-app');
+
+// Other clients are instantiated
+const candleClient = new CandleClient();
+const dlobClient = new DlobWebsocketClient(config);
+```
+
+### Resource Cleanup
+
+Always clean up resources when done:
+
+```typescript
+// Unsubscribe from specific subscriptions
+candleClient.unsubscribe(subscriptionKey);
+
+// Or unsubscribe from all
+candleClient.unsubscribeAll();
+dlobClient.destroy();
+```
+
+### Error Handling
+
+Clients use different error handling strategies:
+
+- **Promises**: Standard try/catch for async operations
+- **Observables**: Error handlers in subscription callbacks
+- **Callbacks**: Optional `onError` configuration parameters
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="CandleClient API" icon="chart-candlestick" href="/api/clients/candle-client">
+    Learn about fetching and subscribing to candle data
+  </Card>
+  
+  <Card title="MarketDataFeed API" icon="rss" href="/api/clients/market-data-feed">
+    Understand websocket subscription management
+  </Card>
+  
+  <Card title="DlobWebsocketClient API" icon="book-open" href="/api/clients/dlob-websocket">
+    Stream real-time orderbook data
+  </Card>
+  
+  <Card title="SwiftClient API" icon="bolt" href="/api/clients/swift-client">
+    Execute orders with Swift infrastructure
+  </Card>
+</CardGroup>

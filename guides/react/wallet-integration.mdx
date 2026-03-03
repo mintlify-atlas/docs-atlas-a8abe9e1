@@ -1,0 +1,312 @@
+---
+title: Wallet Integration
+description: Connect and manage Solana wallets in your React application
+---
+
+## Overview
+
+The React package provides a custom wallet provider that wraps Solana's wallet adapter with Drift-specific functionality, including:
+
+- Custom autoconnect logic
+- Mobile wallet adapter support (SAGA)
+- Wallet state synchronization with Drift store
+- Persistent wallet selection
+
+## Setting Up Wallets
+
+### Using Default Wallet Providers
+
+The package exports a default list of wallet adapters:
+
+```tsx
+import { DriftProvider, DRIFT_WALLET_PROVIDERS } from '@drift-labs/react';
+
+function App() {
+  return (
+    <DriftProvider
+      wallets={DRIFT_WALLET_PROVIDERS}
+      breakpoints={DEFAULT_BREAKPOINTS}
+    >
+      {/* Your app */}
+    </DriftProvider>
+  );
+}
+```
+
+The default providers include:
+- Phantom
+- Solflare
+- Coinbase Wallet
+- Math Wallet
+- Coin98
+- Clover
+
+### Custom Wallet Configuration
+
+You can provide your own wallet adapters:
+
+```tsx
+import { DriftProvider } from '@drift-labs/react';
+import { 
+  PhantomWalletAdapter,
+  SolflareWalletAdapter,
+  BackpackWalletAdapter
+} from '@solana/wallet-adapter-wallets';
+
+const customWallets = [
+  new PhantomWalletAdapter(),
+  new SolflareWalletAdapter(),
+  new BackpackWalletAdapter(),
+];
+
+function App() {
+  return (
+    <DriftProvider
+      wallets={customWallets}
+      breakpoints={DEFAULT_BREAKPOINTS}
+    >
+      {/* Your app */}
+    </DriftProvider>
+  );
+}
+```
+
+## Using the Wallet Hook
+
+Access wallet state and methods with the `useWalletContext` hook:
+
+```tsx
+import { useWalletContext } from '@drift-labs/react';
+
+function WalletButton() {
+  const wallet = useWalletContext();
+
+  const handleConnect = async () => {
+    if (!wallet.connected) {
+      await wallet.connect();
+    }
+  };
+
+  const handleDisconnect = async () => {
+    await wallet.disconnect();
+  };
+
+  if (wallet.connected) {
+    return (
+      <button onClick={handleDisconnect}>
+        Disconnect {wallet.wallet?.adapter.name}
+      </button>
+    );
+  }
+
+  return <button onClick={handleConnect}>Connect Wallet</button>;
+}
+```
+
+### Wallet Context State
+
+The `useWalletContext` hook returns:
+
+```tsx
+interface WalletContextState {
+  // Connection state
+  connected: boolean;
+  connecting: boolean;
+  disconnecting: boolean;
+  
+  // Wallet info
+  wallet: Wallet | null;
+  publicKey: PublicKey | null;
+  
+  // Available wallets
+  wallets: Wallet[];
+  
+  // Methods
+  select: (walletName: WalletName) => void;
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
+  sendTransaction: (transaction: Transaction | VersionedTransaction, connection: Connection, options?: SendTransactionOptions) => Promise<string>;
+  signTransaction: (transaction: Transaction) => Promise<Transaction>;
+  signAllTransactions: (transactions: Transaction[]) => Promise<Transaction[]>;
+  signMessage: (message: Uint8Array) => Promise<Uint8Array>;
+}
+```
+
+## Wallet Selection UI
+
+Create a wallet selection modal:
+
+```tsx
+import { useWalletContext } from '@drift-labs/react';
+import { WalletReadyState } from '@solana/wallet-adapter-base';
+
+function WalletModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const wallet = useWalletContext();
+
+  const handleSelectWallet = async (walletName: string) => {
+    wallet.select(walletName as any);
+    try {
+      await wallet.connect();
+      onClose();
+    } catch (error) {
+      console.error('Failed to connect:', error);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal">
+      <h2>Connect Wallet</h2>
+      <div className="wallet-list">
+        {wallet.wallets
+          .filter((w) => 
+            w.readyState === WalletReadyState.Installed ||
+            w.readyState === WalletReadyState.Loadable
+          )
+          .map((w) => (
+            <button
+              key={w.adapter.name}
+              onClick={() => handleSelectWallet(w.adapter.name)}
+            >
+              <img src={w.adapter.icon} alt={w.adapter.name} />
+              {w.adapter.name}
+            </button>
+          ))}
+      </div>
+    </div>
+  );
+}
+```
+
+## Autoconnect Configuration
+
+### Disabling Autoconnect
+
+```tsx
+<DriftProvider
+  wallets={DRIFT_WALLET_PROVIDERS}
+  breakpoints={DEFAULT_BREAKPOINTS}
+  disableAutoconnect={true}
+>
+  {/* Your app */}
+</DriftProvider>
+```
+
+### Custom Autoconnect Delay
+
+By default, autoconnect waits 4 seconds. You can customize this:
+
+```tsx
+<DriftProvider
+  wallets={DRIFT_WALLET_PROVIDERS}
+  breakpoints={DEFAULT_BREAKPOINTS}
+  autoconnectionDelay={2000} // 2 seconds
+>
+  {/* Your app */}
+</DriftProvider>
+```
+
+## Mobile Wallet Adapter (SAGA)
+
+The wallet provider automatically detects and prioritizes the Mobile Wallet Adapter on SAGA devices:
+
+```tsx
+// No additional configuration needed!
+// On SAGA, only the Mobile Wallet Adapter will be shown
+// to prevent confusion and bugs with other wallet adapters
+```
+
+Source: `/home/daytona/workspace/source/react/src/providers/DriftWalletProvider.tsx:228-244`
+
+## Accessing Wallet Authority
+
+The connected wallet's public key is stored in the Drift store:
+
+```tsx
+import { useCommonDriftStore } from '@drift-labs/react';
+
+function UserInfo() {
+  const authority = useCommonDriftStore((s) => s.authority);
+  const authorityString = useCommonDriftStore((s) => s.authorityString);
+
+  if (!authority) {
+    return <div>No wallet connected</div>;
+  }
+
+  return <div>Connected: {authorityString}</div>;
+}
+```
+
+## SOL Balance Tracking
+
+The wallet's SOL balance is automatically tracked:
+
+```tsx
+import { useCommonDriftStore } from '@drift-labs/react';
+import { BigNum } from '@drift-labs/sdk';
+
+function SolBalanceDisplay() {
+  const solBalance = useCommonDriftStore((s) => s.currentSolBalance);
+
+  if (!solBalance.loaded) {
+    return <div>Loading balance...</div>;
+  }
+
+  return (
+    <div>
+      Balance: {solBalance.value.toNum().toFixed(4)} SOL
+    </div>
+  );
+}
+```
+
+Source: `/home/daytona/workspace/source/react/src/hooks/useSolBalance.tsx:1-80`
+
+## Signing Transactions
+
+Sign and send transactions using the wallet context:
+
+```tsx
+import { useWalletContext } from '@drift-labs/react';
+import { useCommonDriftStore } from '@drift-labs/react';
+import { Transaction } from '@solana/web3.js';
+
+function TransactionExample() {
+  const wallet = useWalletContext();
+  const connection = useCommonDriftStore((s) => s.connection);
+
+  const sendTransaction = async () => {
+    if (!wallet.connected || !connection) return;
+
+    const transaction = new Transaction();
+    // Add instructions to transaction...
+
+    try {
+      const signature = await wallet.sendTransaction(
+        transaction,
+        connection
+      );
+      console.log('Transaction sent:', signature);
+    } catch (error) {
+      console.error('Transaction failed:', error);
+    }
+  };
+
+  return <button onClick={sendTransaction}>Send Transaction</button>;
+}
+```
+
+## Best Practices
+
+1. **Check Connection State**: Always check `wallet.connected` before attempting wallet operations
+2. **Handle Errors**: Wrap wallet operations in try-catch blocks
+3. **User Feedback**: Show loading states during connection/disconnection
+4. **Persistent Selection**: The provider automatically remembers the last connected wallet
+5. **Mobile Support**: Test on SAGA devices to ensure Mobile Wallet Adapter works correctly
+
+## Next Steps
+
+<Card title="Drift Provider Setup" icon="layer-group" href="/guides/react/drift-provider">
+  Learn how to configure the DriftProvider and its hooks
+</Card>

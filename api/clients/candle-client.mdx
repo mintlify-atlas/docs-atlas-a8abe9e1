@@ -1,0 +1,367 @@
+---
+title: 'CandleClient'
+description: 'Fetch and subscribe to candlestick data from the Drift Data API'
+---
+
+## Overview
+
+The `CandleClient` provides a high-level interface for fetching historical candle data and subscribing to real-time candle updates from the Drift Data API.
+
+<Info>
+  If you're using TradingView, consider using `DriftTvFeed` instead, which wraps the CandleClient with TradingView-specific functionality.
+</Info>
+
+## Key Features
+
+- **Fetch Historical Candles**: Retrieve candles for any timestamp range
+- **Real-time Subscriptions**: Subscribe to live candle updates via websocket
+- **Intelligent Caching**: Recent candles (last 1000) cached for instant retrieval
+- **Optimized API Requests**: Avoids high-cardinality parameters for better cache hits
+- **Multiple Concurrent Subscriptions**: Support for multiple markets/resolutions simultaneously
+
+## Architecture
+
+### Fetching Candles
+
+- Maximum 1000 candles per request (see `CANDLE_FETCH_LIMIT`)
+- "Recent history" = last 1000 candles
+- Recent candles fetched without `startTs` parameter for better caching
+- In-memory cache stores recent candles to avoid redundant fetches
+
+### Subscribing to Candles
+
+- Websocket endpoint for each market/resolution combination
+- Multiple concurrent subscriptions supported
+- Uses `MarketDataFeed` internally for websocket management
+
+## Constructor
+
+```typescript
+const candleClient = new CandleClient();
+```
+
+No configuration required - the client is ready to use immediately.
+
+## Methods
+
+### fetch
+
+Fetch historical candles for a specific time range.
+
+```typescript
+async fetch(config: CandleFetchConfig): Promise<JsonCandle[]>
+```
+
+#### Parameters
+
+<ParamField path="config" type="CandleFetchConfig" required>
+  Configuration for fetching candles
+  
+  <Expandable title="CandleFetchConfig properties">
+    <ParamField path="env" type="UIEnv" required>
+      Environment configuration (mainnet/devnet/staging)
+    </ParamField>
+    
+    <ParamField path="marketId" type="MarketId" required>
+      Market identifier (perp or spot)
+    </ParamField>
+    
+    <ParamField path="resolution" type="CandleResolution" required>
+      Candle resolution ('1', '5', '15', '60', '240', 'D')
+    </ParamField>
+    
+    <ParamField path="fromTs" type="number" required>
+      Start timestamp in seconds (oldest candle)
+    </ParamField>
+    
+    <ParamField path="toTs" type="number" required>
+      End timestamp in seconds (newest candle)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+#### Returns
+
+Promise resolving to array of `JsonCandle` objects, sorted ascending by time (oldest first).
+
+#### Example
+
+```typescript
+import { CandleClient } from '@drift-labs/common';
+import { MarketId } from '@drift-labs/common';
+
+const candleClient = new CandleClient();
+
+const candles = await candleClient.fetch({
+  env: { sdkEnv: 'mainnet-beta', isDevnet: false, isStaging: false, key: 'mainnet' },
+  marketId: MarketId.createPerpMarketId(0), // SOL-PERP
+  resolution: '15', // 15-minute candles
+  fromTs: Math.floor(Date.now() / 1000) - 86400, // Last 24 hours
+  toTs: Math.floor(Date.now() / 1000)
+});
+
+console.log(`Fetched ${candles.length} candles`);
+candles.forEach(candle => {
+  console.log(`${new Date(candle.ts * 1000)}: O=${candle.open} H=${candle.high} L=${candle.low} C=${candle.close}`);
+});
+```
+
+### subscribe
+
+Subscribe to real-time candle updates for a specific market and resolution.
+
+```typescript
+async subscribe(
+  config: CandleSubscriptionConfig,
+  subscriptionKey: string
+): Promise<void>
+```
+
+#### Parameters
+
+<ParamField path="config" type="CandleSubscriptionConfig" required>
+  Subscription configuration
+  
+  <Expandable title="CandleSubscriptionConfig properties">
+    <ParamField path="resolution" type="CandleResolution" required>
+      Candle resolution to subscribe to
+    </ParamField>
+    
+    <ParamField path="marketId" type="MarketId" required>
+      Market to subscribe to
+    </ParamField>
+    
+    <ParamField path="env" type="UIEnv" required>
+      Environment configuration
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="subscriptionKey" type="string" required>
+  Unique key to identify this subscription (used for unsubscribing)
+</ParamField>
+
+<Note>
+  If a subscription with the same key already exists, it will be automatically unsubscribed before creating the new one.
+</Note>
+
+#### Example
+
+```typescript
+import { CandleClient } from '@drift-labs/common';
+import { MarketId } from '@drift-labs/common';
+
+const candleClient = new CandleClient();
+const subscriptionKey = 'sol-perp-15m';
+
+// Subscribe to candles
+await candleClient.subscribe(
+  {
+    env: { sdkEnv: 'mainnet-beta', isDevnet: false, isStaging: false, key: 'mainnet' },
+    marketId: MarketId.createPerpMarketId(0), // SOL-PERP
+    resolution: '15'
+  },
+  subscriptionKey
+);
+
+// Listen for candle updates
+candleClient.on(subscriptionKey, 'candle-update', (candle) => {
+  console.log('New candle:', candle);
+});
+```
+
+### on
+
+Attach an event listener to a subscription.
+
+```typescript
+on(
+  subscriptionKey: string,
+  event: 'candle-update',
+  listener: (candle: JsonCandle) => void
+): void
+```
+
+#### Parameters
+
+<ParamField path="subscriptionKey" type="string" required>
+  The subscription key used when calling `subscribe()`
+</ParamField>
+
+<ParamField path="event" type="'candle-update'" required>
+  Event type (currently only 'candle-update' is supported)
+</ParamField>
+
+<ParamField path="listener" type="(candle: JsonCandle) => void" required>
+  Callback function to handle candle updates
+</ParamField>
+
+### unsubscribe
+
+Unsubscribe from a specific subscription.
+
+```typescript
+unsubscribe(subscriptionKey: string): void
+```
+
+#### Parameters
+
+<ParamField path="subscriptionKey" type="string" required>
+  The subscription key to unsubscribe
+</ParamField>
+
+#### Example
+
+```typescript
+candleClient.unsubscribe('sol-perp-15m');
+```
+
+### unsubscribeAll
+
+Unsubscribe from all active subscriptions.
+
+```typescript
+unsubscribeAll(): void
+```
+
+#### Example
+
+```typescript
+candleClient.unsubscribeAll();
+```
+
+## Static Cache Methods
+
+The `CandleFetcher` internal class provides static cache management methods:
+
+### clearWholeCache
+
+Clear the entire candle cache.
+
+```typescript
+CandleFetcher.clearWholeCache(): void
+```
+
+### clearCacheForSubscription
+
+Clear cache for a specific market and resolution.
+
+```typescript
+CandleFetcher.clearCacheForSubscription(
+  marketId: MarketId,
+  resolution: CandleResolution
+): void
+```
+
+## Types
+
+### JsonCandle
+
+```typescript
+interface JsonCandle {
+  ts: number;        // Timestamp in seconds
+  open: number;      // Opening price
+  high: number;      // Highest price
+  low: number;       // Lowest price
+  close: number;     // Closing price
+  volume: number;    // Volume
+}
+```
+
+### CandleResolution
+
+```typescript
+type CandleResolution = '1' | '5' | '15' | '60' | '240' | 'D';
+// 1 = 1 minute
+// 5 = 5 minutes
+// 15 = 15 minutes
+// 60 = 1 hour
+// 240 = 4 hours
+// D = 1 day
+```
+
+## Performance Optimization
+
+### Caching Strategy
+
+The client implements a two-tier caching approach:
+
+1. **Recent Candles Cache**: Stores the last 1000 candles per market/resolution
+2. **URL Cache**: Caches constructed URLs to avoid repeated string operations
+
+### API Request Optimization
+
+- **Recent history requests** (within last 1000 candles): Omits `startTs` parameter for better CDN caching
+- **Historical requests** (beyond 1000 candles): Uses `startTs` with pagination
+
+### Example: Efficient Pagination
+
+```typescript
+// Fetching large date ranges is handled automatically
+const candles = await candleClient.fetch({
+  env: mainnetEnv,
+  marketId: solPerpMarketId,
+  resolution: '15',
+  fromTs: thirtyDaysAgo,
+  toTs: now
+});
+
+// The client automatically:
+// 1. Calculates number of candles needed
+// 2. Makes multiple paginated requests if needed
+// 3. Combines results into a single sorted array
+```
+
+## Common Patterns
+
+### Multiple Market Subscriptions
+
+```typescript
+const markets = [
+  { id: MarketId.createPerpMarketId(0), name: 'SOL-PERP' },
+  { id: MarketId.createPerpMarketId(1), name: 'BTC-PERP' },
+  { id: MarketId.createPerpMarketId(2), name: 'ETH-PERP' }
+];
+
+for (const market of markets) {
+  const key = `${market.name}-15m`;
+  
+  await candleClient.subscribe({
+    env: mainnetEnv,
+    marketId: market.id,
+    resolution: '15'
+  }, key);
+  
+  candleClient.on(key, 'candle-update', (candle) => {
+    console.log(`${market.name} update:`, candle);
+  });
+}
+```
+
+### Cleanup on Component Unmount
+
+```typescript
+// React example
+useEffect(() => {
+  const subscriptionKey = 'sol-perp-15m';
+  
+  candleClient.subscribe(config, subscriptionKey);
+  candleClient.on(subscriptionKey, 'candle-update', handleUpdate);
+  
+  return () => {
+    candleClient.unsubscribe(subscriptionKey);
+  };
+}, []);
+```
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="MarketDataFeed" icon="rss" href="/api/clients/market-data-feed">
+    Internal websocket manager used by CandleClient
+  </Card>
+  
+  <Card title="Data API Reference" icon="book" href="https://data.api.drift.trade/playground">
+    Official Drift Data API documentation
+  </Card>
+</CardGroup>

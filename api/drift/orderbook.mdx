@@ -1,0 +1,448 @@
+---
+title: Orderbook Management
+description: Real-time orderbook data via DriftL2OrderbookManager
+---
+
+## Overview
+
+The `DriftL2OrderbookManager` provides real-time Level 2 (L2) orderbook data for Drift markets via WebSocket connections to the DLOB (Decentralized Limit Order Book) server. It manages subscriptions, handles message parsing, and provides reactive updates.
+
+## DriftL2OrderbookManager
+
+### Constructor
+
+```typescript
+const manager = new DriftL2OrderbookManager({
+  wsUrl: 'wss://dlob.drift.trade/ws',
+  subscriptionConfig: {
+    marketId: MarketId.createPerpMarket(0),
+    channel: 'orderbook_indicative',
+    grouping: 0.01,
+  },
+});
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/DriftL2OrderbookManager.ts:38`
+
+### Configuration
+
+```typescript
+interface DriftL2OrderbookManagerConfig {
+  wsUrl: string;
+  subscriptionConfig?: DriftL2OrderbookSubscription;
+}
+
+interface DriftL2OrderbookSubscription {
+  marketId: MarketId;
+  channel: 'orderbook_indicative' | 'orderbook';
+  grouping: OrderbookGrouping;
+}
+
+type OrderbookGrouping = number; // Price grouping (e.g., 0.01 for $0.01)
+```
+
+#### Parameters
+
+- **wsUrl**: WebSocket URL for DLOB server
+- **subscriptionConfig**: Optional initial subscription configuration
+  - **marketId**: Market to subscribe to
+  - **channel**: Orderbook channel type
+    - `'orderbook_indicative'`: Includes indicative liquidity (recommended)
+    - `'orderbook'`: Standard orderbook only
+  - **grouping**: Price level grouping in quote currency
+
+## Lifecycle Methods
+
+### subscribe()
+
+Establishes WebSocket connection and subscribes to orderbook updates.
+
+```typescript
+await manager.subscribe();
+```
+
+**Process:**
+1. Checks for existing subscription
+2. Creates WebSocket subscription via MultiplexWebSocket
+3. Sends subscribe message to DLOB server
+4. Sets up message handlers
+5. Enables heartbeat monitoring
+
+Source: `src/drift/Drift/clients/AuthorityDrift/DriftL2OrderbookManager.ts:54`
+
+### unsubscribe()
+
+Closes WebSocket connection and cleans up.
+
+```typescript
+manager.unsubscribe();
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/DriftL2OrderbookManager.ts:118`
+
+### updateSubscription()
+
+Updates the market subscription (resubscribes to new market).
+
+```typescript
+manager.updateSubscription({
+  marketId: MarketId.createPerpMarket(1), // Switch to BTC-PERP
+  grouping: 0.1, // Optional: update grouping
+});
+```
+
+**Process:**
+1. Unsubscribes from current market
+2. Updates subscription config
+3. Subscribes to new market
+
+Source: `src/drift/Drift/clients/AuthorityDrift/DriftL2OrderbookManager.ts:128`
+
+### destroy()
+
+Completely destroys the manager and releases all resources.
+
+```typescript
+manager.destroy();
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/DriftL2OrderbookManager.ts:194`
+
+## Data Access
+
+### store
+
+Gets the current orderbook snapshot.
+
+```typescript
+const orderbook = manager.store;
+
+if (orderbook) {
+  console.log('Market:', orderbook.marketIndex);
+  console.log('Bids:', orderbook.bids);
+  console.log('Asks:', orderbook.asks);
+  console.log('Best bid:', orderbook.bestBidPrice);
+  console.log('Best ask:', orderbook.bestAskPrice);
+  console.log('Mark price:', orderbook.markPrice);
+  console.log('Slot:', orderbook.slot);
+}
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/DriftL2OrderbookManager.ts:43`
+
+### getOrderbookData()
+
+Alternative method to get current orderbook.
+
+```typescript
+const orderbook = manager.getOrderbookData();
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/DriftL2OrderbookManager.ts:178`
+
+## Reactive Updates
+
+### onUpdate()
+
+Subscribe to orderbook updates.
+
+```typescript
+const subscription = manager.onUpdate((orderbook) => {
+  console.log('Orderbook updated!');
+  console.log('Best bid:', orderbook.bestBidPrice);
+  console.log('Best ask:', orderbook.bestAskPrice);
+  console.log('Spread:', orderbook.bestAskPrice - orderbook.bestBidPrice);
+  
+  // Access L2 data
+  orderbook.bids.forEach(([price, size]) => {
+    console.log(`Bid: ${price} @ ${size}`);
+  });
+  
+  orderbook.asks.forEach(([price, size]) => {
+    console.log(`Ask: ${price} @ ${size}`);
+  });
+});
+
+// Cleanup when done
+subscription.unsubscribe();
+```
+
+Source: `src/drift/Drift/clients/AuthorityDrift/DriftL2OrderbookManager.ts:185`
+
+## Orderbook Data Structure
+
+### L2WithOracleAndMarketData
+
+```typescript
+interface L2WithOracleAndMarketData {
+  // Market identification
+  marketIndex: number;
+  marketType: MarketType;
+  
+  // Orderbook data
+  bids: [number, number][]; // [price, size]
+  asks: [number, number][]; // [price, size]
+  
+  // Best prices
+  bestBidPrice: number;
+  bestAskPrice: number;
+  
+  // Mark price
+  markPrice: number;
+  
+  // Oracle data
+  oracleData: {
+    price: number;
+    slot: number;
+    confidence: number;
+    hasSufficientNumberOfDataPoints: boolean;
+  };
+  
+  // Metadata
+  slot?: number;
+  timestamp?: number;
+}
+```
+
+### Orderbook Levels
+
+Each level is a tuple of `[price, size]`:
+- **price**: Quote currency price (e.g., USD for SOL-PERP)
+- **size**: Base currency size (e.g., SOL amount)
+
+```typescript
+// Example bid levels
+const bids = [
+  [99.50, 100],  // 100 SOL at $99.50
+  [99.45, 250],  // 250 SOL at $99.45
+  [99.40, 500],  // 500 SOL at $99.40
+];
+```
+
+## Price Grouping
+
+Grouping aggregates orderbook levels by price intervals.
+
+```typescript
+// No grouping (raw data)
+const manager1 = new DriftL2OrderbookManager({
+  wsUrl,
+  subscriptionConfig: {
+    marketId: MarketId.createPerpMarket(0),
+    channel: 'orderbook_indicative',
+    grouping: 0.01, // $0.01 intervals
+  },
+});
+
+// Wider grouping (aggregated)
+const manager2 = new DriftL2OrderbookManager({
+  wsUrl,
+  subscriptionConfig: {
+    marketId: MarketId.createPerpMarket(0),
+    channel: 'orderbook_indicative',
+    grouping: 1.0, // $1.00 intervals
+  },
+});
+```
+
+### Grouping Examples
+
+| Grouping | Description | Use Case |
+|----------|-------------|----------|
+| 0.01 | $0.01 | High precision, more levels |
+| 0.1 | $0.10 | Medium precision |
+| 1.0 | $1.00 | Low precision, aggregated view |
+| 10.0 | $10.00 | Very aggregated, high-level view |
+
+## Channel Types
+
+### orderbook_indicative
+
+Includes both actual orders and indicative liquidity from AMM.
+
+```typescript
+subscriptionConfig: {
+  channel: 'orderbook_indicative',
+  // ...
+}
+```
+
+**Use case:** Full market depth including AMM liquidity (recommended for most applications)
+
+### orderbook
+
+Only actual limit orders from users.
+
+```typescript
+subscriptionConfig: {
+  channel: 'orderbook',
+  // ...
+}
+```
+
+**Use case:** Pure orderbook without synthetic liquidity
+
+## Complete Example
+
+```typescript
+import { 
+  DriftL2OrderbookManager, 
+  MarketId,
+  DEFAULT_ORDERBOOK_GROUPING 
+} from '@drift/common';
+
+// Create manager
+const orderbookManager = new DriftL2OrderbookManager({
+  wsUrl: 'wss://dlob.drift.trade/ws',
+  subscriptionConfig: {
+    marketId: MarketId.createPerpMarket(0), // SOL-PERP
+    channel: 'orderbook_indicative',
+    grouping: DEFAULT_ORDERBOOK_GROUPING, // 0.01
+  },
+});
+
+// Subscribe to updates
+const subscription = orderbookManager.onUpdate((orderbook) => {
+  console.log('\n=== Orderbook Update ===');
+  console.log('Market:', orderbook.marketIndex);
+  console.log('Mark Price:', orderbook.markPrice);
+  console.log('Oracle Price:', orderbook.oracleData.price);
+  console.log('Slot:', orderbook.slot);
+  
+  // Display top 5 levels
+  console.log('\nTop 5 Asks:');
+  orderbook.asks.slice(0, 5).forEach(([price, size]) => {
+    console.log(`  ${price.toFixed(2)} | ${size.toFixed(2)}`);
+  });
+  
+  console.log('\nTop 5 Bids:');
+  orderbook.bids.slice(0, 5).forEach(([price, size]) => {
+    console.log(`  ${price.toFixed(2)} | ${size.toFixed(2)}`);
+  });
+  
+  // Calculate spread
+  const spread = orderbook.bestAskPrice - orderbook.bestBidPrice;
+  const spreadBps = (spread / orderbook.markPrice) * 10000;
+  console.log(`\nSpread: $${spread.toFixed(2)} (${spreadBps.toFixed(2)} bps)`);
+  
+  // Calculate depth
+  const bidDepth = orderbook.bids.reduce((sum, [_, size]) => sum + size, 0);
+  const askDepth = orderbook.asks.reduce((sum, [_, size]) => sum + size, 0);
+  console.log(`Bid Depth: ${bidDepth.toFixed(2)} SOL`);
+  console.log(`Ask Depth: ${askDepth.toFixed(2)} SOL`);
+});
+
+// Start subscription
+await orderbookManager.subscribe();
+
+// Switch to different market after 30 seconds
+setTimeout(() => {
+  console.log('Switching to BTC-PERP...');
+  orderbookManager.updateSubscription({
+    marketId: MarketId.createPerpMarket(1), // BTC-PERP
+    grouping: 1.0, // Wider grouping for BTC
+  });
+}, 30000);
+
+// Cleanup after 60 seconds
+setTimeout(() => {
+  subscription.unsubscribe();
+  orderbookManager.destroy();
+  console.log('Orderbook manager destroyed');
+}, 60000);
+```
+
+## Error Handling
+
+```typescript
+const orderbookManager = new DriftL2OrderbookManager({
+  wsUrl: 'wss://dlob.drift.trade/ws',
+  subscriptionConfig: {
+    marketId: MarketId.createPerpMarket(0),
+    channel: 'orderbook_indicative',
+    grouping: 0.01,
+  },
+});
+
+// The manager handles errors internally
+// Check console for:
+// - "OrderbookManager WebSocket error:"
+// - "OrderbookManager WebSocket connection closed"
+// - "Error processing orderbook websocket message:"
+
+const subscription = orderbookManager.onUpdate((orderbook) => {
+  try {
+    // Process orderbook data
+    if (!orderbook.bids.length || !orderbook.asks.length) {
+      console.warn('Empty orderbook received');
+      return;
+    }
+    
+    // Your logic here
+  } catch (error) {
+    console.error('Error processing orderbook:', error);
+  }
+});
+
+await orderbookManager.subscribe();
+```
+
+## Integration with AuthorityDrift
+
+The orderbook manager is automatically managed by `AuthorityDrift`:
+
+```typescript
+import { AuthorityDrift, MarketId } from '@drift/common';
+
+const client = new AuthorityDrift({
+  solanaRpcEndpoint: process.env.RPC_URL,
+  driftEnv: 'mainnet-beta',
+  wallet: myWallet,
+  selectedTradeMarket: MarketId.createPerpMarket(0),
+  orderbookConfig: {
+    orderbookGrouping: 0.01,
+  },
+});
+
+await client.subscribe();
+
+// Access orderbook manager
+const orderbookManager = client.orderbookManager;
+
+// Access current orderbook
+const orderbook = client.orderbookCache;
+
+// Subscribe to updates
+client.onOrderbookUpdate((orderbook) => {
+  console.log('Orderbook updated:', orderbook);
+});
+
+// Change selected market (automatically updates orderbook subscription)
+client.updateSelectedTradeMarket(MarketId.createPerpMarket(1));
+```
+
+## Performance Considerations
+
+### WebSocket Updates
+
+- Updates arrive at variable rates (typically 100-500ms)
+- Each update contains full L2 snapshot
+- No incremental updates (full orderbook each time)
+
+### Memory Usage
+
+- Stores single orderbook snapshot in memory
+- Typical orderbook: 1-5KB depending on depth
+- Minimal memory footprint
+
+### Network Usage
+
+- WebSocket maintains persistent connection
+- Bandwidth depends on market activity
+- Typical: 5-20 messages per second during active trading
+
+## See Also
+
+- [AuthorityDrift](/api/drift/authority-drift) - Main client using orderbook manager
+- [SubscriptionManager](/api/drift/subscription-manager) - Subscription optimization
+- [Drift Protocol Overview](/api/drift/overview) - Integration overview

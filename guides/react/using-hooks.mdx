@@ -1,0 +1,563 @@
+---
+title: Using Hooks
+description: Complete guide to all available React hooks in @drift-labs/react
+---
+
+## Overview
+
+The React package provides a comprehensive set of hooks for accessing Drift Protocol data and functionality. All hooks are built on Zustand and provide efficient, selector-based state management.
+
+## Core Hooks
+
+### useCommonDriftActions
+
+Returns all available Drift actions for interacting with the protocol:
+
+```tsx
+import { useCommonDriftActions } from '@drift-labs/react';
+
+function DriftActions() {
+  const actions = useCommonDriftActions();
+
+  const handleDeposit = async () => {
+    // Access Drift actions
+    await actions.deposit({
+      amount: 100,
+      marketIndex: 0,
+    });
+  };
+
+  return <button onClick={handleDeposit}>Deposit</button>;
+}
+```
+
+Source: `/home/daytona/workspace/source/react/src/hooks/useCommonDriftActions.tsx:1-12`
+
+### useWalletContext
+
+Access the current wallet connection state:
+
+```tsx
+import { useWalletContext } from '@drift-labs/react';
+
+function WalletInfo() {
+  const wallet = useWalletContext();
+
+  return (
+    <div>
+      <div>Connected: {wallet?.connected ? 'Yes' : 'No'}</div>
+      <div>Wallet: {wallet?.wallet?.adapter.name}</div>
+      <div>Address: {wallet?.publicKey?.toBase58()}</div>
+    </div>
+  );
+}
+```
+
+Source: `/home/daytona/workspace/source/react/src/hooks/useWalletContext.tsx:5-11`
+
+### useDriftClientIsReady
+
+Check if the Drift client is initialized and subscribed:
+
+```tsx
+import { useDriftClientIsReady } from '@drift-labs/react';
+
+function DriftStatus() {
+  const isReady = useDriftClientIsReady();
+
+  if (!isReady) {
+    return <div>Initializing Drift client...</div>;
+  }
+
+  return <div>Drift client ready!</div>;
+}
+```
+
+Source: `/home/daytona/workspace/source/react/src/hooks/useDriftClientIsReady.tsx:1-13`
+
+### useSolBalance
+
+Access the connected wallet's SOL balance:
+
+```tsx
+import { useCommonDriftStore } from '@drift-labs/react';
+
+function SolBalance() {
+  const solBalance = useCommonDriftStore((s) => s.currentSolBalance);
+
+  if (!solBalance.loaded) {
+    return <div>Loading balance...</div>;
+  }
+
+  return (
+    <div>
+      SOL Balance: {solBalance.value.toNum().toFixed(4)}
+    </div>
+  );
+}
+```
+
+Source: `/home/daytona/workspace/source/react/src/hooks/useSolBalance.tsx:10-79`
+
+## Account Hooks
+
+### useAccountExists
+
+Check if the connected wallet has a Drift account:
+
+```tsx
+import { useAccountExists } from '@drift-labs/react';
+
+function AccountStatus() {
+  const accountExists = useAccountExists();
+
+  if (accountExists === undefined) {
+    return <div>Checking account...</div>;
+  }
+
+  if (!accountExists) {
+    return <button>Create Drift Account</button>;
+  }
+
+  return <div>Account exists!</div>;
+}
+```
+
+Source: `/home/daytona/workspace/source/react/src/hooks/useAccountExists.tsx:10-44`
+
+### useAccountCreationCost
+
+Get the cost to create a new Drift account:
+
+```tsx
+import { useAccountCreationCost } from '@drift-labs/react';
+
+function CreateAccountButton() {
+  const creationCost = useAccountCreationCost();
+
+  return (
+    <button>
+      Create Account ({creationCost.toFixed(4)} SOL)
+    </button>
+  );
+}
+```
+
+## RPC & Connection Hooks
+
+### useCurrentRpc
+
+Access and update the current RPC endpoint:
+
+```tsx
+import { useCurrentRpc } from '@drift-labs/react';
+
+function RpcSelector() {
+  const [currentRpc, setCurrentRpc] = useCurrentRpc();
+
+  const handleChangeRpc = (newRpc) => {
+    setCurrentRpc(newRpc);
+  };
+
+  return (
+    <div>
+      <div>Current RPC: {currentRpc.label}</div>
+      <div>Endpoint: {currentRpc.value}</div>
+    </div>
+  );
+}
+```
+
+Source: `/home/daytona/workspace/source/react/src/hooks/useCurrentRpc.tsx:12-40`
+
+### useRpcLatencies
+
+Monitor RPC endpoint latencies:
+
+```tsx
+import { useRpcLatencies } from '@drift-labs/react';
+
+function RpcLatencyMonitor() {
+  const latencies = useRpcLatencies();
+
+  return (
+    <div>
+      {Object.entries(latencies).map(([endpoint, latency]) => (
+        <div key={endpoint}>
+          {endpoint}: {latency}ms
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+### useHandleBadRpc
+
+Automatically detect and switch away from bad RPC endpoints:
+
+```tsx
+import { useHandleBadRpc } from '@drift-labs/react';
+
+function App() {
+  // Automatically monitors RPC health and switches if needed
+  useHandleBadRpc();
+
+  return <div>Your app</div>;
+}
+```
+
+## Priority Fee Hooks
+
+### usePriorityFeeUserSettings
+
+Manage user's priority fee preferences:
+
+```tsx
+import { usePriorityFeeUserSettings } from '@drift-labs/react';
+
+function PriorityFeeSettings() {
+  const [settings, setSettings] = usePriorityFeeUserSettings();
+
+  const handleUpdateFee = (newFee: number) => {
+    setSettings({
+      ...settings,
+      priorityFee: newFee,
+    });
+  };
+
+  return (
+    <div>
+      <label>
+        Priority Fee (microLamports):
+        <input
+          type="number"
+          value={settings.priorityFee}
+          onChange={(e) => handleUpdateFee(Number(e.target.value))}
+        />
+      </label>
+    </div>
+  );
+}
+```
+
+### usePriorityFeeSubscriber
+
+Subscribe to real-time priority fee updates:
+
+```tsx
+import { usePriorityFeeSubscriber } from '@drift-labs/react';
+
+function PriorityFeeDisplay() {
+  const priorityFees = usePriorityFeeSubscriber();
+
+  return (
+    <div>
+      <div>Low: {priorityFees.low}</div>
+      <div>Medium: {priorityFees.medium}</div>
+      <div>High: {priorityFees.high}</div>
+    </div>
+  );
+}
+```
+
+### usePriorityFeesPollingRate
+
+Get the current priority fee polling rate:
+
+```tsx
+import { usePriorityFeesPollingRate } from '@drift-labs/react';
+
+function PriorityFeePolling() {
+  const pollingRate = usePriorityFeesPollingRate();
+
+  return <div>Polling every {pollingRate}ms</div>;
+}
+```
+
+## Utility Hooks
+
+### useImmediateInterval
+
+Run a function immediately and then at intervals:
+
+```tsx
+import { useImmediateInterval } from '@drift-labs/react';
+
+function DataRefresher() {
+  const [data, setData] = useState(null);
+
+  useImmediateInterval(() => {
+    // Runs immediately on mount, then every 10 seconds
+    fetchData().then(setData);
+  }, 10000);
+
+  return <div>{data}</div>;
+}
+```
+
+### useSyncLocalStorage
+
+Synchronize state with localStorage:
+
+```tsx
+import { useSyncLocalStorage } from '@drift-labs/react';
+
+function UserPreferences() {
+  const [theme, setTheme] = useSyncLocalStorage('theme', 'dark');
+
+  return (
+    <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+      Current theme: {theme}
+    </button>
+  );
+}
+```
+
+### useDisableScroll
+
+Disable page scrolling (useful for modals):
+
+```tsx
+import { useDisableScroll } from '@drift-labs/react';
+
+function Modal({ isOpen }: { isOpen: boolean }) {
+  useDisableScroll(isOpen);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal">
+      {/* Modal content */}
+    </div>
+  );
+}
+```
+
+### useTargetedPopover
+
+Manage popover state and positioning:
+
+```tsx
+import { useTargetedPopover } from '@drift-labs/react';
+
+function PopoverExample() {
+  const popover = useTargetedPopover();
+
+  return (
+    <>
+      <button ref={popover.targetRef} onClick={popover.toggle}>
+        Toggle Popover
+      </button>
+      {popover.isOpen && (
+        <div ref={popover.popoverRef} style={popover.styles}>
+          Popover content
+        </div>
+      )}
+    </>
+  );
+}
+```
+
+## Feature Hooks
+
+### useEmulation
+
+Check if emulation mode is enabled:
+
+```tsx
+import { useCommonDriftStore } from '@drift-labs/react';
+
+function EmulationIndicator() {
+  const emulationMode = useCommonDriftStore((s) => s.emulationMode);
+
+  if (emulationMode) {
+    return <div className="warning">Emulation Mode Active</div>;
+  }
+
+  return null;
+}
+```
+
+### useGeoBlocking
+
+Check if user is geo-blocked:
+
+```tsx
+import { useCommonDriftStore } from '@drift-labs/react';
+
+function GeoBlockingCheck() {
+  const isGeoBlocked = useCommonDriftStore((s) => s.isGeoBlocked);
+
+  if (isGeoBlocked) {
+    return <div>Service not available in your region</div>;
+  }
+
+  return <div>Your app content</div>;
+}
+```
+
+### useDevSwitchIsOn
+
+Check if developer mode is enabled:
+
+```tsx
+import { useDevSwitchIsOn } from '@drift-labs/react';
+
+function DevTools() {
+  const isDevMode = useDevSwitchIsOn();
+
+  if (!isDevMode) return null;
+
+  return (
+    <div className="dev-tools">
+      {/* Developer tools */}
+    </div>
+  );
+}
+```
+
+### useIsMainnet
+
+Check if connected to mainnet:
+
+```tsx
+import { useIsMainnet } from '@drift-labs/react';
+
+function NetworkIndicator() {
+  const isMainnet = useIsMainnet();
+
+  return (
+    <div>
+      Network: {isMainnet ? 'Mainnet' : 'Devnet'}
+    </div>
+  );
+}
+```
+
+### useLastAcknowledgedTerms
+
+Track when user last acknowledged terms:
+
+```tsx
+import { useLastAcknowledgedTerms } from '@drift-labs/react';
+
+function TermsCheck() {
+  const [lastAck, setLastAck] = useLastAcknowledgedTerms();
+
+  const handleAcknowledge = () => {
+    setLastAck(Date.now());
+  };
+
+  if (!lastAck || Date.now() - lastAck > 30 * 24 * 60 * 60 * 1000) {
+    return (
+      <div>
+        <p>Please acknowledge our terms</p>
+        <button onClick={handleAcknowledge}>I Agree</button>
+      </div>
+    );
+  }
+
+  return null;
+}
+```
+
+## Chart Hooks
+
+### useGroupHistoricalPricesByAverage
+
+Group historical price data by time interval:
+
+```tsx
+import { useGroupHistoricalPricesByAverage } from '@drift-labs/react';
+
+function PriceChart() {
+  const historicalPrices = [
+    { timestamp: 1234567890, price: 100 },
+    { timestamp: 1234567900, price: 101 },
+    // ...
+  ];
+
+  const groupedData = useGroupHistoricalPricesByAverage(
+    historicalPrices,
+    '1h' // Group by hour
+  );
+
+  return (
+    <div>
+      {groupedData.map((point) => (
+        <div key={point.timestamp}>
+          {new Date(point.timestamp).toLocaleString()}: ${point.price}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Store Access Pattern
+
+For maximum flexibility, access the store directly:
+
+```tsx
+import { useCommonDriftStore } from '@drift-labs/react';
+
+function CompleteStoreAccess() {
+  // Select specific values for optimal re-rendering
+  const authority = useCommonDriftStore((s) => s.authority);
+  const connection = useCommonDriftStore((s) => s.connection);
+  const driftClient = useCommonDriftStore((s) => s.driftClient.client);
+  const isReady = useCommonDriftStore((s) => s.checkIsDriftClientReady());
+  
+  // Access setter for updates
+  const set = useCommonDriftStore((s) => s.set);
+  
+  const updatePollingMultiplier = (multiplier: number) => {
+    set((s) => {
+      s.pollingMultiplier = multiplier;
+    });
+  };
+
+  return <div>...</div>;
+}
+```
+
+## Best Practices
+
+1. **Use Selectors**: Always use Zustand selectors to prevent unnecessary re-renders
+
+```tsx
+// Good
+const authority = useCommonDriftStore((s) => s.authority);
+
+// Bad - causes re-render on ANY store change
+const store = useCommonDriftStore();
+```
+
+2. **Check Ready State**: Always check if Drift client is ready before using it
+
+```tsx
+const isReady = useDriftClientIsReady();
+if (!isReady) return <Loading />;
+```
+
+3. **Handle Loading States**: Most hooks may return undefined initially
+
+```tsx
+const accountExists = useAccountExists();
+if (accountExists === undefined) return <Loading />;
+```
+
+4. **Singleton Hooks**: Some hooks use `react-singleton-hook` to ensure single instance
+
+```tsx
+// These are singletons
+import useAccountExists from '@drift-labs/react';
+import { useCurrentRpc } from '@drift-labs/react';
+```
+
+## Next Steps
+
+<Card title="Custom Components" icon="puzzle-piece" href="/guides/react/custom-components">
+  Learn how to build custom components using these hooks
+</Card>

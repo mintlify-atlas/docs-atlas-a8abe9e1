@@ -1,0 +1,87 @@
+---
+title: React Components Overview
+description: Overview of React component library in Drift Common
+---
+
+## Introduction
+
+The Drift Common React component library provides a comprehensive set of reusable UI components for building consistent, accessible interfaces. These components are organized into specialized categories for different use cases.
+
+## Component Categories
+
+### Tables
+
+A complete suite of table components for displaying structured data with support for responsive layouts, custom styling, and loading states.
+
+**Key Components:**
+- `BodyCell`, `HeaderCell` - Individual table cells
+- `BodyRow`, `HeaderRow`, `SummaryRow` - Row containers
+- `TableSkeleton` - Full table layout with loading support
+- `TableCellCardValue` - Card-style cell values for mobile views
+
+[View Table Components →](/api/react/components/tables)
+
+### Charts
+
+Chart visualization components designed to work with charting libraries like Recharts.
+
+**Key Components:**
+- `ActiveDot` - Animated active data point indicator
+
+[View Chart Components →](/api/react/components/charts)
+
+### Loaders
+
+Loading indicators and progress bars for displaying asynchronous states.
+
+**Key Components:**
+- `InlineLoadingBar` - Compact animated loading indicator
+- `ProgressBarThreeColor` - Multi-segment progress bar
+
+[View Loader Components →](/api/react/components/loaders)
+
+## Installation
+
+All components are available through the main package export:
+
+```tsx
+import { BodyCell, HeaderRow, TableSkeleton } from '@drift/common/react';
+```
+
+## Design Principles
+
+### Composition
+
+Components are designed to be composed together. For example, table components work together to build complete table structures:
+
+```tsx
+<TableSkeleton
+  top={<HeaderRow grid="grid-cols-3">...</HeaderRow>}
+  middle={<BodyRow grid="grid-cols-3">...</BodyRow>}
+/>
+```
+
+### Styling
+
+Components use Tailwind CSS for styling and accept `className` props for customization. Many components use `tailwind-merge` to intelligently merge custom classes with default styles.
+
+### TypeScript Support
+
+All components are written in TypeScript with full type definitions for props and exports.
+
+## Common Props
+
+Many components share common prop patterns:
+
+- `className` - Custom CSS classes to merge with component defaults
+- `children` - React children for content composition
+- `onClick` - Click event handlers
+- `dataPuppetTag` - Test automation identifiers
+
+## Next Steps
+
+Explore the detailed documentation for each component category:
+
+- [Tables](/api/react/components/tables) - Data table components
+- [Charts](/api/react/components/charts) - Chart visualization components  
+- [Loaders](/api/react/components/loaders) - Loading and progress indicators

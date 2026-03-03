@@ -1,0 +1,543 @@
+---
+title: Testing Guide
+description: Comprehensive guide to testing Drift Common integrations with patterns, examples, and best practices
+---
+
+Learn how to write effective tests for your Drift Common integration using the same patterns used in the library itself.
+
+## Testing Framework
+
+Drift Common uses Mocha and Chai for testing:
+
+```bash
+yarn add --dev mocha chai @types/mocha @types/chai
+yarn add --dev ts-node typescript
+```
+
+### Test Configuration
+
+Create a test script in `package.json`:
+
+```json
+{
+  "scripts": {
+    "test": "mocha -r ts-node/register 'tests/**/*.test.ts'",
+    "test:watch": "mocha -r ts-node/register 'tests/**/*.test.ts' --watch",
+    "test:debug": "node --inspect-brk node_modules/.bin/mocha -r ts-node/register"
+  }
+}
+```
+
+## Unit Testing
+
+### Testing Utility Functions
+
+```typescript
+import { expect } from 'chai';
+import { COMMON_UI_UTILS } from '@drift-labs/common';
+
+describe('trimTrailingZeros', () => {
+  it('trims trailing zeros after decimal', () => {
+    expect(COMMON_UI_UTILS.trimTrailingZeros('1.0000')).to.equal('1.0');
+    expect(COMMON_UI_UTILS.trimTrailingZeros('1.0000', 0)).to.equal('1');
+    expect(COMMON_UI_UTILS.trimTrailingZeros('1.1200', 0)).to.equal('1.12');
+  });
+
+  it('handles numbers without trailing zeros', () => {
+    expect(COMMON_UI_UTILS.trimTrailingZeros('1', 0)).to.equal('1');
+    expect(COMMON_UI_UTILS.trimTrailingZeros('1.123', 0)).to.equal('1.123');
+  });
+
+  it('handles zero', () => {
+    expect(COMMON_UI_UTILS.trimTrailingZeros('0', 0)).to.equal('0');
+    expect(COMMON_UI_UTILS.trimTrailingZeros('0.000', 0)).to.equal('0');
+  });
+});
+```
+
+### Testing Circular Buffers
+
+```typescript
+import { expect } from 'chai';
+import { CircularBuffer } from '@drift-labs/common';
+
+describe('CircularBuffer', () => {
+  it('should store items up to capacity', () => {
+    const buffer = new CircularBuffer<number>(3);
+    
+    buffer.push(1);
+    buffer.push(2);
+    buffer.push(3);
+    
+    expect(buffer.size()).to.equal(3);
+    expect(buffer.toArray()).to.deep.equal([1, 2, 3]);
+  });
+
+  it('should overwrite oldest items when full', () => {
+    const buffer = new CircularBuffer<number>(3);
+    
+    buffer.push(1);
+    buffer.push(2);
+    buffer.push(3);
+    buffer.push(4); // Overwrites 1
+    
+    expect(buffer.toArray()).to.deep.equal([2, 3, 4]);
+  });
+
+  it('should peek at latest item', () => {
+    const buffer = new CircularBuffer<number>(3);
+    
+    buffer.push(1);
+    buffer.push(2);
+    
+    expect(buffer.peek()).to.equal(2);
+    expect(buffer.size()).to.equal(2); // Size unchanged
+  });
+});
+```
+
+### Testing Error Handling
+
+```typescript
+import { expect } from 'chai';
+import { GeoBlockError, NoTopMakersError } from '@drift-labs/common';
+
+describe('Error Classes', () => {
+  describe('GeoBlockError', () => {
+    it('should create error with method name', () => {
+      const error = new GeoBlockError('placeOrder');
+      
+      expect(error.name).to.equal('GeoBlockError');
+      expect(error.message).to.include('placeOrder');
+      expect(error.message).to.include('geographical restrictions');
+    });
+  });
+
+  describe('NoTopMakersError', () => {
+    it('should include order params', () => {
+      const orderParams = { marketIndex: 0, amount: 1000 };
+      const error = new NoTopMakersError('No makers found', orderParams);
+      
+      expect(error.name).to.equal('NoTopMakersError');
+      expect(error.orderParams).to.deep.equal(orderParams);
+    });
+  });
+});
+```
+
+## Integration Testing
+
+### Testing with Devnet
+
+```typescript
+import { expect } from 'chai';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { EnvironmentConstants } from '@drift-labs/common';
+
+describe('Devnet Integration', () => {
+  let connection: Connection;
+
+  before(() => {
+    const rpc = EnvironmentConstants.rpcs.dev[0];
+    connection = new Connection(rpc.value, 'confirmed');
+  });
+
+  it('should connect to devnet RPC', async () => {
+    const blockheight = await connection.getBlockHeight();
+    expect(blockheight).to.be.a('number');
+    expect(blockheight).to.be.greaterThan(0);
+  });
+
+  it('should fetch account data', async () => {
+    const account = await connection.getAccountInfo(
+      new PublicKey('11111111111111111111111111111111')
+    );
+    expect(account).to.not.be.null;
+  });
+});
+```
+
+### Testing Market Data
+
+```typescript
+import { expect } from 'chai';
+import { Config, Initialize } from '@drift-labs/common';
+
+describe('Market Configuration', () => {
+  before(() => {
+    Initialize('devnet');
+  });
+
+  it('should initialize config', () => {
+    expect(Config.initialized).to.be.true;
+    expect(Config.spotMarketsLookup).to.be.an('array');
+    expect(Config.perpMarketsLookup).to.be.an('array');
+  });
+
+  it('should have USDC spot market at index 0', () => {
+    const usdcMarket = Config.spotMarketsLookup[0];
+    expect(usdcMarket).to.exist;
+    expect(usdcMarket.symbol).to.equal('USDC');
+  });
+
+  it('should have SOL-PERP market at index 0', () => {
+    const solPerp = Config.perpMarketsLookup[0];
+    expect(solPerp).to.exist;
+    expect(solPerp.baseAssetSymbol).to.equal('SOL');
+  });
+});
+```
+
+## Mocking and Stubbing
+
+### Using Sinon for Mocking
+
+```bash
+yarn add --dev sinon @types/sinon
+```
+
+```typescript
+import { expect } from 'chai';
+import sinon from 'sinon';
+import { Connection } from '@solana/web3.js';
+
+describe('RPC Connection', () => {
+  let connection: Connection;
+  let getLatestBlockhashStub: sinon.SinonStub;
+
+  beforeEach(() => {
+    connection = new Connection('http://localhost:8899');
+    getLatestBlockhashStub = sinon.stub(connection, 'getLatestBlockhash');
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it('should handle RPC failures', async () => {
+    getLatestBlockhashStub.rejects(new Error('RPC timeout'));
+
+    try {
+      await connection.getLatestBlockhash();
+      expect.fail('Should have thrown');
+    } catch (error) {
+      expect(error.message).to.equal('RPC timeout');
+    }
+  });
+
+  it('should return blockhash on success', async () => {
+    getLatestBlockhashStub.resolves({
+      blockhash: 'mock-blockhash',
+      lastValidBlockHeight: 1000
+    });
+
+    const result = await connection.getLatestBlockhash();
+    expect(result.blockhash).to.equal('mock-blockhash');
+  });
+});
+```
+
+### Mocking WebSocket Connections
+
+```typescript
+import { expect } from 'chai';
+import sinon from 'sinon';
+import { MultiplexWebSocket } from '@drift-labs/common';
+
+describe('WebSocket Connection', () => {
+  let ws: MultiplexWebSocket;
+  let sendStub: sinon.SinonStub;
+
+  beforeEach(() => {
+    ws = new MultiplexWebSocket('wss://example.com');
+    sendStub = sinon.stub(ws as any, 'send');
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it('should send subscription message', () => {
+    ws.subscribe({ channel: 'orderbook', market: 'SOL-PERP' });
+    
+    expect(sendStub.calledOnce).to.be.true;
+    const message = JSON.parse(sendStub.firstCall.args[0]);
+    expect(message.channel).to.equal('orderbook');
+    expect(message.market).to.equal('SOL-PERP');
+  });
+});
+```
+
+## Testing Async Code
+
+### Testing Promises
+
+```typescript
+import { expect } from 'chai';
+
+describe('Async Operations', () => {
+  it('should resolve promise', async () => {
+    const result = await Promise.resolve(42);
+    expect(result).to.equal(42);
+  });
+
+  it('should reject promise', async () => {
+    try {
+      await Promise.reject(new Error('Failed'));
+      expect.fail('Should have thrown');
+    } catch (error) {
+      expect(error.message).to.equal('Failed');
+    }
+  });
+
+  it('should handle timeout', async function() {
+    this.timeout(5000); // Increase timeout for slow operations
+    
+    const result = await new Promise(resolve => {
+      setTimeout(() => resolve('done'), 1000);
+    });
+    
+    expect(result).to.equal('done');
+  });
+});
+```
+
+### Testing Event Emitters
+
+```typescript
+import { expect } from 'chai';
+import { EventEmitter } from 'events';
+
+describe('Event Emitters', () => {
+  it('should emit events', (done) => {
+    const emitter = new EventEmitter();
+    
+    emitter.on('data', (value) => {
+      expect(value).to.equal(42);
+      done();
+    });
+    
+    emitter.emit('data', 42);
+  });
+
+  it('should handle multiple listeners', () => {
+    const emitter = new EventEmitter();
+    let count = 0;
+    
+    emitter.on('increment', () => count++);
+    emitter.on('increment', () => count++);
+    
+    emitter.emit('increment');
+    expect(count).to.equal(2);
+  });
+});
+```
+
+## Testing Error Codes
+
+### Drift Error Validation
+
+```typescript
+import { expect } from 'chai';
+import driftErrors from '@drift-labs/common/constants/autogenerated/driftErrors.json';
+
+describe('Drift Error Codes', () => {
+  it('should have error code mapping', () => {
+    expect(driftErrors.errorCodesMap).to.be.an('object');
+    expect(driftErrors.errorsList).to.be.an('object');
+  });
+
+  it('should have InsufficientCollateral error', () => {
+    const error = driftErrors.errorsList.InsufficientCollateral;
+    expect(error).to.exist;
+    expect(error.code).to.equal(6003);
+    expect(error.toast).to.exist;
+  });
+
+  it('should map error code to name', () => {
+    const errorName = driftErrors.errorCodesMap['6003'];
+    expect(errorName).to.equal('InsufficientCollateral');
+  });
+
+  it('should have all toast messages', () => {
+    Object.values(driftErrors.errorsList).forEach((error: any) => {
+      if (error.toast) {
+        expect(error.toast.message || error.toast.description).to.exist;
+      }
+    });
+  });
+});
+```
+
+### Jupiter Error Validation
+
+```typescript
+import { expect } from 'chai';
+import jupErrors from '@drift-labs/common/constants/autogenerated/jup-v6-error-codes.json';
+
+describe('Jupiter Error Codes', () => {
+  it('should have program ID', () => {
+    expect(jupErrors.programId).to.equal('JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4');
+  });
+
+  it('should have SlippageToleranceExceeded error', () => {
+    const error = jupErrors.errorsList.SlippageToleranceExceeded;
+    expect(error).to.exist;
+    expect(error.code).to.equal(6001);
+    expect(error.msg).to.equal('Slippage tolerance exceeded');
+  });
+});
+```
+
+## Performance Testing
+
+### Benchmark Tests
+
+```typescript
+import { expect } from 'chai';
+import { CircularBuffer } from '@drift-labs/common';
+
+describe('Performance Benchmarks', () => {
+  it('should push 10000 items quickly', () => {
+    const buffer = new CircularBuffer<number>(1000);
+    const start = performance.now();
+    
+    for (let i = 0; i < 10000; i++) {
+      buffer.push(i);
+    }
+    
+    const elapsed = performance.now() - start;
+    expect(elapsed).to.be.lessThan(100); // Should complete in <100ms
+  });
+
+  it('should convert to array quickly', () => {
+    const buffer = new CircularBuffer<number>(1000);
+    for (let i = 0; i < 1000; i++) {
+      buffer.push(i);
+    }
+    
+    const start = performance.now();
+    const array = buffer.toArray();
+    const elapsed = performance.now() - start;
+    
+    expect(array.length).to.equal(1000);
+    expect(elapsed).to.be.lessThan(10); // Should complete in <10ms
+  });
+});
+```
+
+## Test Organization
+
+### Recommended Structure
+
+```
+tests/
+├── unit/
+│   ├── utils/
+│   │   ├── CircularBuffer.test.ts
+│   │   ├── stringUtils.test.ts
+│   │   └── math.test.ts
+│   ├── errors/
+│   │   └── errorClasses.test.ts
+│   └── types/
+│       └── MarketId.test.ts
+├── integration/
+│   ├── drift/
+│   │   ├── deposits.test.ts
+│   │   ├── withdrawals.test.ts
+│   │   └── trading.test.ts
+│   └── clients/
+│       └── marketDataFeed.test.ts
+└── e2e/
+    └── fullFlow.test.ts
+```
+
+## Best Practices
+
+### 1. Use Descriptive Test Names
+
+```typescript
+// Good
+it('should throw InsufficientCollateral error when collateral is below requirement', () => {
+  // ...
+});
+
+// Bad
+it('test 1', () => {
+  // ...
+});
+```
+
+### 2. Test Edge Cases
+
+```typescript
+describe('CircularBuffer edge cases', () => {
+  it('should handle empty buffer', () => {
+    const buffer = new CircularBuffer<number>(10);
+    expect(buffer.size()).to.equal(0);
+    expect(buffer.peek()).to.be.undefined;
+  });
+
+  it('should handle capacity of 1', () => {
+    const buffer = new CircularBuffer<number>(1);
+    buffer.push(1);
+    buffer.push(2);
+    expect(buffer.toArray()).to.deep.equal([2]);
+  });
+});
+```
+
+### 3. Use Setup and Teardown
+
+```typescript
+describe('Test Suite', () => {
+  let connection: Connection;
+
+  before(() => {
+    // Runs once before all tests
+    connection = new Connection(rpcUrl);
+  });
+
+  beforeEach(() => {
+    // Runs before each test
+  });
+
+  afterEach(() => {
+    // Runs after each test
+  });
+
+  after(() => {
+    // Runs once after all tests
+  });
+});
+```
+
+### 4. Test Isolation
+
+```typescript
+// Each test should be independent
+describe('Independent Tests', () => {
+  it('test 1', () => {
+    const buffer = new CircularBuffer<number>(10);
+    buffer.push(1);
+    expect(buffer.size()).to.equal(1);
+  });
+
+  it('test 2', () => {
+    const buffer = new CircularBuffer<number>(10);
+    // Fresh buffer - no state from test 1
+    expect(buffer.size()).to.equal(0);
+  });
+});
+```
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Error Handling" icon="circle-exclamation" href="/guides/advanced/error-handling">
+    Test error handling patterns
+  </Card>
+  <Card title="Performance Optimization" icon="gauge-high" href="/guides/advanced/performance-optimization">
+    Test performance optimizations
+  </Card>
+</CardGroup>
